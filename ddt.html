@@ -275,7 +275,7 @@ window.elabora = async function(input) {
     const isPdf = file.type === 'application/pdf';
 
     // Chiama Cloud Function Firebase come proxy (evita CORS)
-    const resp = await fetch('https://leggiDDT-7pq5wpfg2a-ew.a.run.app', {
+    const resp = await fetch('https://europe-west3-club-greed.cloudfunctions.net/leggiDDT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ base64, mediaType: file.type })
