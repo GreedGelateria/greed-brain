@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>GREED — Fix Path Firebase</title>
+<style>
+body { font-family: monospace; background: #0f1a13; color: #a7c84b; padding: 30px; }
+#log { white-space: pre; line-height: 1.8; font-size: 14px; }
+.err { color: #e74c3c; }
+.ok { color: #a7c84b; }
+.info { color: #5a7d62; }
+</style>
+</head>
+<body>
+<h2 style="color:#a7c84b;margin-bottom:20px">GREED Brain — Fix Path Firestore</h2>
+<div id="log">Avvio...</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const FB = {
+  apiKey: "AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4",
+  projectId: "club-greed",
+  appId: "1:704669833762:web:917f4c7b104bc8ad39087b"
+};
+const app = initializeApp(FB, 'fix-path');
+const db  = getFirestore(app);
+
+const log = document.getElementById('log');
+function addLog(msg, type='ok') {
+  log.innerHTML += `<span class="${type}">${msg}\n</span>`;
+}
+
+// Mappa path vecchi → nuovi
+const MIGRATIONS = [
+  { from: 'laboratorio/magazzino/docs', to: 'magazzino' },
+  { from: 'laboratorio/registro/docs',  to: 'registro'  },
+  { from: 'laboratorio/ricette/docs',   to: 'ricette'   },
+  { from: 'laboratorio/ingredienti/docs', to: 'ingredienti' },
+  { from: 'gestionale/fornitori/docs',  to: 'fornitori' },
+  { from: 'gestionale/clientiB2B/docs', to: 'clientiB2B' },
+  { from: 'gestionale/consegneB2B/docs','to': 'consegneB2B' },
+  { from: 'gestionale/vendite/docs',    to: 'vendite'   },
+  { from: 'haccp/pulizie/giorni',       to: 'pulizie'   },
+  { from: 'haccp/nonConformita/docs',   to: 'nonConformita' },
+  { from: 'haccp/ricevimentoMerci/docs','to': 'ricevimentoMerci' },
+  { from: 'haccp/sensori/letture',      to: 'sensori'   },
+  { from: 'laboratorio/inventari/docs', to: 'inventari' },
+];
+
+async function migraPath(fromPath, toPath) {
+  try {
+    const snap = await getDocs(collection(db, fromPath));
+    if (snap.empty) {
+      addLog(`  ⟳ ${fromPath} — vuoto, skip`, 'info');
+      return 0;
+    }
+    let count = 0;
+    for (const d of snap.docs) {
+      await setDoc(doc(db, toPath, d.id), d.data());
+      count++;
+    }
+    addLog(`  ✅ ${fromPath} → ${toPath} (${count} docs)`, 'ok');
+    return count;
+  } catch(e) {
+    addLog(`  ⚠️ ${fromPath}: ${e.message}`, 'err');
+    return 0;
+  }
+}
+
+(async () => {
+  addLog('🔄 Inizio migrazione path...\n', 'info');
+  let totale = 0;
+  for (const m of MIGRATIONS) {
+    const n = await migraPath(m.from, m.to);
+    totale += n;
+  }
+  addLog(`\n🎉 FATTO — ${totale} documenti copiati nei path corretti`, 'ok');
+  addLog('Ricarica la dashboard per vedere i dati aggiornati.', 'info');
+})();
+</script>
+</body>
+</html>

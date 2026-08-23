@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GREED — Non Conformità</title>
+<style>
+:root {
+  --dark:   #0f1a13;
+  --panel:  #16241c;
+  --border: #243b2a;
+  --lime:   #a7c84b;
+  --lime2:  #c5e05a;
+  --amber:  #e0a028;
+  --red:    #e74c3c;
+  --muted:  #5a7d62;
+  --text:   #d8ead0;
+  --text2:  #8aad8f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--dark); color: var(--text); min-height: 100vh; }
+
+/* LOGIN */
+#login-screen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 100vh; padding: 24px;
+}
+.login-logo { font-size: 32px; font-weight: 900; color: var(--lime); letter-spacing: -2px; margin-bottom: 4px; }
+.login-sub { font-size: 13px; color: var(--muted); margin-bottom: 32px; }
+.user-chips { display: flex; gap: 10px; margin-bottom: 24px; }
+.user-chip {
+  padding: 8px 20px; border-radius: 20px;
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); font-size: 14px; cursor: pointer; transition: all .15s;
+}
+.user-chip.active { background: var(--lime); color: var(--dark); border-color: var(--lime); font-weight: 700; }
+.pin-display { display: flex; gap: 12px; margin-bottom: 24px; }
+.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); background: transparent; transition: background .15s; }
+.pin-dot.filled { background: var(--lime); border-color: var(--lime); }
+.pin-grid { display: grid; grid-template-columns: repeat(3, 68px); gap: 10px; }
+.pin-btn { height: 68px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); color: var(--text); font-size: 20px; font-weight: 700; cursor: pointer; transition: all .12s; }
+.pin-btn:hover { background: var(--border); }
+.pin-btn:active { transform: scale(.94); }
+.pin-error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+/* APP */
+#app { display: none; }
+.app-header {
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.app-logo { font-size: 18px; font-weight: 900; color: var(--lime); }
+.app-logo span { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.operator-badge { background: var(--dark); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--lime); }
+.btn-logout { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+.btn-tab { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; transition: all .15s; }
+.btn-tab.active { background: var(--lime); color: var(--dark); border-color: var(--lime); font-weight: 700; }
+
+/* TABS */
+.tabs { display: flex; gap: 8px; padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--border); }
+
+/* MAIN */
+.main { max-width: 680px; margin: 0 auto; padding: 20px; }
+
+/* FORM NC */
+.form-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 16px; }
+.form-title { font-size: 15px; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+.form-group { margin-bottom: 16px; }
+.form-label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: .7px; margin-bottom: 8px; display: block; }
+
+/* TIPI NC */
+.tipi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tipo-btn {
+  padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--dark); color: var(--text); font-size: 13px;
+  cursor: pointer; text-align: left; transition: all .15s;
+  display: flex; align-items: center; gap: 8px;
+}
+.tipo-btn:hover { border-color: var(--amber); }
+.tipo-btn.selected { background: rgba(224,160,40,.12); border-color: var(--amber); color: var(--amber); font-weight: 600; }
+
+/* SEVERITY */
+.severity-row { display: flex; gap: 8px; }
+.sev-btn {
+  flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--dark); color: var(--text); font-size: 12px; font-weight: 600;
+  cursor: pointer; text-align: center; transition: all .15s;
+}
+.sev-btn.sel-bassa { background: rgba(167,200,75,.15); border-color: var(--lime); color: var(--lime); }
+.sev-btn.sel-media { background: rgba(224,160,40,.15); border-color: var(--amber); color: var(--amber); }
+.sev-btn.sel-alta  { background: rgba(231,76,60,.15); border-color: var(--red); color: var(--red); }
+
+/* INPUTS */
+textarea, select, input[type=text] {
+  width: 100%; padding: 10px 14px;
+  background: var(--dark); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px;
+  font-family: inherit; resize: vertical;
+}
+textarea:focus, select:focus, input[type=text]:focus { outline: none; border-color: var(--lime); }
+textarea { min-height: 80px; }
+select option { background: var(--dark); }
+
+/* BTN SALVA */
+.btn-salva {
+  width: 100%; padding: 15px; border-radius: 10px; border: none;
+  background: var(--red); color: #fff;
+  font-size: 15px; font-weight: 800; cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-salva:hover { background: #c0392b; }
+.btn-salva:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+/* LISTA NC */
+.nc-item {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 18px; margin-bottom: 10px;
+  border-left: 4px solid var(--amber);
+}
+.nc-item.risolta { border-left-color: var(--lime); opacity: .7; }
+.nc-item.alta { border-left-color: var(--red); }
+.nc-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+.nc-tipo { font-size: 14px; font-weight: 700; }
+.nc-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.nc-desc { font-size: 13px; color: var(--text2); margin-bottom: 10px; line-height: 1.5; }
+.nc-azione { font-size: 12px; color: var(--lime); background: rgba(167,200,75,.08); padding: 6px 10px; border-radius: 6px; margin-bottom: 10px; }
+.nc-footer { display: flex; align-items: center; justify-content: space-between; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.badge-aperta { background: rgba(231,76,60,.15); color: var(--red); }
+.badge-risolta { background: rgba(167,200,75,.15); color: var(--lime); }
+.badge-alta { background: rgba(231,76,60,.15); color: var(--red); }
+.badge-media { background: rgba(224,160,40,.15); color: var(--amber); }
+.badge-bassa { background: rgba(167,200,75,.15); color: var(--lime); }
+.btn-risolvi {
+  background: var(--lime); color: var(--dark); border: none;
+  border-radius: 7px; padding: 6px 14px; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all .15s;
+}
+.btn-risolvi:hover { background: var(--lime2); }
+.empty { text-align: center; color: var(--muted); font-size: 13px; padding: 40px 20px; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--lime); color: var(--dark); padding: 12px 24px; border-radius: 10px; font-weight: 700; font-size: 14px; z-index: 999; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-logo">GREED</div>
+  <div class="login-sub">Non Conformità HACCP</div>
+  <div class="user-chips" id="user-chips"></div>
+  <div class="pin-display" id="pin-display"></div>
+  <div class="pin-grid">
+    <button class="pin-btn" onclick="pinPress('1')">1</button>
+    <button class="pin-btn" onclick="pinPress('2')">2</button>
+    <button class="pin-btn" onclick="pinPress('3')">3</button>
+    <button class="pin-btn" onclick="pinPress('4')">4</button>
+    <button class="pin-btn" onclick="pinPress('5')">5</button>
+    <button class="pin-btn" onclick="pinPress('6')">6</button>
+    <button class="pin-btn" onclick="pinPress('7')">7</button>
+    <button class="pin-btn" onclick="pinPress('8')">8</button>
+    <button class="pin-btn" onclick="pinPress('9')">9</button>
+    <button class="pin-btn" onclick="pinPress('0')" style="grid-column:2">0</button>
+    <button class="pin-btn" onclick="pinDel()">⌫</button>
+  </div>
+  <div class="pin-error" id="pin-error"></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="app-header">
+    <div class="app-logo">GREED <span>Non Conformità</span></div>
+    <div class="header-right">
+      <button class="btn-tab active" id="tab-nuova" onclick="setTab('nuova')">➕ Nuova</button>
+      <button class="btn-tab" id="tab-lista" onclick="setTab('lista')">📋 Lista</button>
+      <div class="operator-badge" id="operator-badge"></div>
+      <button class="btn-logout" onclick="logout()">Esci</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- TAB NUOVA -->
+    <div id="tab-nuova-content">
+      <div class="form-card">
+        <div class="form-title">⚠️ Segnala Non Conformità</div>
+
+        <div class="form-group">
+          <label class="form-label">Tipo di non conformità</label>
+          <div class="tipi-grid" id="tipi-grid">
+            <button class="tipo-btn" onclick="selTipo(this,'🌡️ Temperatura fuori range')">🌡️ Temperatura fuori range</button>
+            <button class="tipo-btn" onclick="selTipo(this,'⚡ Assenza di corrente')">⚡ Assenza di corrente</button>
+            <button class="tipo-btn" onclick="selTipo(this,'🍦 Prodotto non conforme')">🍦 Prodotto non conforme</button>
+            <button class="tipo-btn" onclick="selTipo(this,'📦 Materia prima scaduta/danneggiata')">📦 Materia prima scaduta/danneggiata</button>
+            <button class="tipo-btn" onclick="selTipo(this,'🔧 Attrezzatura guasta')">🔧 Attrezzatura guasta</button>
+            <button class="tipo-btn" onclick="selTipo(this,'🧹 Mancata pulizia')">🧹 Mancata pulizia</button>
+            <button class="tipo-btn" onclick="selTipo(this,'🐛 Presenza infestanti')">🐛 Presenza infestanti</button>
+            <button class="tipo-btn" onclick="selTipo(this,'📋 Altro')">📋 Altro</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Gravità</label>
+          <div class="severity-row">
+            <button class="sev-btn" id="sev-bassa" onclick="selSev('bassa')">🟢 Bassa</button>
+            <button class="sev-btn" id="sev-media" onclick="selSev('media')">🟡 Media</button>
+            <button class="sev-btn" id="sev-alta"  onclick="selSev('alta')">🔴 Alta</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Descrizione</label>
+          <textarea id="nc-desc" placeholder="Descrivi cosa è successo..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Azione correttiva adottata</label>
+          <textarea id="nc-azione" placeholder="Cosa hai fatto per risolvere o contenere il problema..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Zona / Apparecchiatura coinvolta</label>
+          <select id="nc-zona">
+            <option value="">— Seleziona —</option>
+            <option>Gelateria — Banco gelati</option>
+            <option>Gelateria — Banco cremolati</option>
+            <option>Gelateria — Armadio positivo</option>
+            <option>Gelateria — Armadio negativo</option>
+            <option>Gelateria — Vetrina semifreddi</option>
+            <option>Gelateria — Montapanna</option>
+            <option>Gelateria — Yogurtiera</option>
+            <option>Gelateria — Generale</option>
+            <option>Laboratorio — Pozzetto congelatore</option>
+            <option>Laboratorio — Armadio positivo</option>
+            <option>Laboratorio — Armadio negativo</option>
+            <option>Laboratorio — Pastorizzatore</option>
+            <option>Laboratorio — Mantecatore</option>
+            <option>Laboratorio — Generale</option>
+            <option>Magazzino</option>
+            <option>Bagno / Spogliatoio</option>
+            <option>Esterno / Generale</option>
+          </select>
+        </div>
+
+        <button class="btn-salva" id="btn-salva" onclick="salvaNc()">
+          ⚠️ Registra Non Conformità
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB LISTA -->
+    <div id="tab-lista-content" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-size:13px;color:var(--muted)" id="lista-info">Caricamento...</div>
+        <select id="filtro-stato" onchange="loadLista()" style="width:auto;padding:6px 12px;font-size:12px;">
+          <option value="tutte">Tutte</option>
+          <option value="aperte">Solo aperte</option>
+          <option value="risolte">Solo risolte</option>
+        </select>
+      </div>
+      <div id="nc-lista"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, updateDoc, getDocs, collection, orderBy, query }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
+const app = initializeApp(FB, 'nonconformita');
+const db  = getFirestore(app);
+
+const OPERATORI = [
+  { nome: 'DARIO', pin: '1234' },
+  { nome: 'FABIO', pin: '1234' },
+];
+
+let currentUser = null, currentPin = '', tipoSel = null, sevSel = null;
+
+// ── LOGIN ─────────────────────────────────────────────────
+const chips = document.getElementById('user-chips');
+chips.innerHTML = OPERATORI.map(o =>
+  `<div class="user-chip" id="chip-${o.nome}" onclick="selUser('${o.nome}')">${o.nome}</div>`
+).join('');
+renderDots();
+
+window.selUser = n => {
+  currentUser = n; currentPin = '';
+  document.querySelectorAll('.user-chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('chip-' + n)?.classList.add('active');
+  document.getElementById('pin-error').textContent = '';
+  renderDots();
+};
+
+function renderDots() {
+  document.getElementById('pin-display').innerHTML =
+    Array(4).fill(0).map((_,i) =>
+      `<div class="pin-dot ${i < currentPin.length ? 'filled' : ''}"></div>`
+    ).join('');
+}
+
+window.pinPress = d => {
+  if (!currentUser) { document.getElementById('pin-error').textContent = 'Seleziona il tuo nome'; return; }
+  if (currentPin.length >= 4) return;
+  currentPin += d; renderDots();
+  if (currentPin.length === 4) checkPin();
+};
+window.pinDel = () => { currentPin = currentPin.slice(0,-1); renderDots(); };
+
+function checkPin() {
+  const op = OPERATORI.find(o => o.nome === currentUser);
+  if (!op || op.pin !== currentPin) {
+    document.getElementById('pin-error').textContent = 'PIN non corretto';
+    setTimeout(() => { currentPin = ''; renderDots(); }, 700);
+    return;
+  }
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('operator-badge').textContent = '👤 ' + currentUser;
+}
+
+window.logout = () => {
+  currentUser = null; currentPin = ''; tipoSel = null; sevSel = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.querySelectorAll('.user-chip').forEach(c => c.classList.remove('active'));
+  renderDots();
+};
+
+// ── TABS ──────────────────────────────────────────────────
+window.setTab = t => {
+  document.getElementById('tab-nuova-content').style.display = t === 'nuova' ? 'block' : 'none';
+  document.getElementById('tab-lista-content').style.display = t === 'lista' ? 'block' : 'none';
+  document.getElementById('tab-nuova').classList.toggle('active', t === 'nuova');
+  document.getElementById('tab-lista').classList.toggle('active', t === 'lista');
+  if (t === 'lista') loadLista();
+};
+
+// ── FORM ──────────────────────────────────────────────────
+window.selTipo = (btn, tipo) => {
+  tipoSel = tipo;
+  document.querySelectorAll('.tipo-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+};
+
+window.selSev = sev => {
+  sevSel = sev;
+  ['bassa','media','alta'].forEach(s => {
+    const b = document.getElementById('sev-' + s);
+    b.className = 'sev-btn' + (s === sev ? ' sel-' + s : '');
+  });
+};
+
+window.salvaNc = async () => {
+  if (!tipoSel) { showToast('⚠️ Seleziona il tipo di non conformità'); return; }
+  if (!sevSel)  { showToast('⚠️ Seleziona la gravità'); return; }
+  const desc = document.getElementById('nc-desc').value.trim();
+  if (!desc) { showToast('⚠️ Inserisci una descrizione'); return; }
+
+  const btn = document.getElementById('btn-salva');
+  btn.disabled = true; btn.textContent = '⏳ Salvataggio...';
+
+  try {
+    const ora  = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+    const data = new Date().toISOString().split('T')[0];
+    const id   = `nc_${Date.now()}`;
+
+    await setDoc(doc(db, 'nonConformita', id), {
+      id, data, ora,
+      tipo:     tipoSel,
+      gravita:  sevSel,
+      descrizione: desc,
+      azione:   document.getElementById('nc-azione').value.trim(),
+      zona:     document.getElementById('nc-zona').value,
+      operatore: currentUser,
+      risolta:  false,
+      _ts: Date.now()
+    });
+
+    showToast('✅ Non conformità registrata');
+    // Reset form
+    tipoSel = null; sevSel = null;
+    document.querySelectorAll('.tipo-btn').forEach(b => b.classList.remove('selected'));
+    ['bassa','media','alta'].forEach(s => document.getElementById('sev-'+s).className = 'sev-btn');
+    document.getElementById('nc-desc').value = '';
+    document.getElementById('nc-azione').value = '';
+    document.getElementById('nc-zona').value = '';
+
+  } catch(e) {
+    showToast('❌ Errore: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚠️ Registra Non Conformità';
+  }
+};
+
+// ── LISTA ─────────────────────────────────────────────────
+window.loadLista = async () => {
+  const filtro = document.getElementById('filtro-stato').value;
+  const lista  = document.getElementById('nc-lista');
+  lista.innerHTML = '<div class="empty">Caricamento...</div>';
+
+  try {
+    const snap = await getDocs(collection(db, 'nonConformita'));
+    let items = [];
+    snap.forEach(d => items.push({id: d.id, ...d.data()}));
+    items.sort((a,b) => (b._ts||0) - (a._ts||0));
+
+    if (filtro === 'aperte')  items = items.filter(i => !i.risolta);
+    if (filtro === 'risolte') items = items.filter(i => i.risolta);
+
+    document.getElementById('lista-info').textContent =
+      `${items.length} non conformità ${filtro === 'tutte' ? 'totali' : filtro}`;
+
+    if (!items.length) {
+      lista.innerHTML = '<div class="empty">✅ Nessuna non conformità trovata</div>';
+      return;
+    }
+
+    lista.innerHTML = items.map(nc => `
+      <div class="nc-item ${nc.risolta ? 'risolta' : ''} ${nc.gravita === 'alta' ? 'alta' : ''}">
+        <div class="nc-header">
+          <div>
+            <div class="nc-tipo">${nc.tipo || '—'}</div>
+            <div class="nc-meta">📅 ${nc.data} ${nc.ora ? '• ' + nc.ora : ''} • 👤 ${nc.operatore || '—'} ${nc.zona ? '• 📍 ' + nc.zona : ''}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+            <span class="badge badge-${nc.risolta ? 'risolta' : 'aperta'}">${nc.risolta ? '✅ Risolta' : '❌ Aperta'}</span>
+            <span class="badge badge-${nc.gravita}">${nc.gravita === 'alta' ? '🔴' : nc.gravita === 'media' ? '🟡' : '🟢'} ${nc.gravita}</span>
+          </div>
+        </div>
+        ${nc.descrizione ? `<div class="nc-desc">${nc.descrizione}</div>` : ''}
+        ${nc.azione ? `<div class="nc-azione">✅ Azione: ${nc.azione}</div>` : ''}
+        <div class="nc-footer">
+          <span style="font-size:11px;color:var(--muted)">${nc.risolta && nc.risoltaDa ? '✅ Risolta da ' + nc.risoltaDa + ' il ' + nc.risoltaData : ''}</span>
+          ${!nc.risolta ? `<button class="btn-risolvi" onclick="risolvi('${nc.id}')">✅ Segna risolta</button>` : ''}
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    lista.innerHTML = '<div class="empty">Errore caricamento</div>';
+  }
+};
+
+window.risolvi = async id => {
+  const ora  = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+  const data = new Date().toISOString().split('T')[0];
+  try {
+    await updateDoc(doc(db, 'nonConformita', id), {
+      risolta: true, risoltaDa: currentUser,
+      risoltaData: data, risoltaOra: ora, _tsRisolta: Date.now()
+    });
+    showToast('✅ Non conformità risolta');
+    loadLista();
+  } catch(e) { showToast('❌ Errore: ' + e.message); }
+};
+
+// ── TOAST ─────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

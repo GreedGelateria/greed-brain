@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>GREED — Fix Inventario</title>
+<style>
+body { font-family: monospace; background: #0f1a13; color: #a7c84b; padding: 30px; }
+#log { white-space: pre-wrap; line-height: 1.8; font-size: 13px; }
+.err { color: #e74c3c; }
+.ok { color: #a7c84b; }
+.info { color: #5a7d62; }
+</style>
+</head>
+<body>
+<h2 style="color:#a7c84b;margin-bottom:20px">GREED — Fix Inventario Magazzino</h2>
+<div id="log">Avvio ricerca inventario...</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, getDocs, doc, setDoc, getDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const FB = {
+  apiKey: "AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4",
+  projectId: "club-greed",
+  appId: "1:704669833762:web:917f4c7b104bc8ad39087b"
+};
+const app = initializeApp(FB, 'fix-inv');
+const db  = getFirestore(app);
+
+const log = document.getElementById('log');
+function addLog(msg, type='ok') {
+  log.innerHTML += `<span class="${type}">${msg}\n</span>`;
+}
+
+(async () => {
+  // 1. Cerca l'inventario salvato
+  addLog('🔍 Cerco inventario in laboratorio/inventari/docs...', 'info');
+  
+  // Prova vari path dove potrebbe essere finito l'inventario
+  const paths = [
+    'laboratorio/inventari/docs',
+    'inventari',
+    'laboratorio/magazzino/docs',
+  ];
+
+  let inventarioData = null;
+  let inventarioPath = null;
+
+  for (const path of paths) {
+    try {
+      const snap = await getDocs(collection(db, path));
+      if (!snap.empty) {
+        addLog(`✅ Trovati ${snap.size} docs in: ${path}`, 'ok');
+        // Cerca quello con giacenze reali (g > 0)
+        snap.forEach(d => {
+          const data = d.data();
+          // Se è un inventario completo
+          if (data.ingredienti && data.ingredienti.length > 0) {
+            addLog(`  📋 Inventario trovato: ${d.id} (${data.ingredienti.length} ingredienti)`, 'ok');
+            inventarioData = data.ingredienti;
+            inventarioPath = path;
+          }
+          // Se è un singolo ingrediente con g > 0
+          if (data.g > 0 && data.nome) {
+            addLog(`  🧂 ${data.nome}: ${data.g}g`, 'info');
+          }
+        });
+      } else {
+        addLog(`  ⟳ ${path} — vuoto`, 'info');
+      }
+    } catch(e) {
+      addLog(`  ⚠️ ${path}: ${e.message}`, 'err');
+    }
+  }
+
+  // 2. Se trovato inventario, aggiorna magazzino
+  if (inventarioData && inventarioData.length > 0) {
+    addLog(`\n🔄 Aggiorno magazzino con ${inventarioData.length} ingredienti...`, 'info');
+    let aggiornati = 0;
+    for (const ing of inventarioData) {
+      if (!ing.nome || ing.g === 0) continue;
+      const key = ing.nome.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 100);
+      try {
+        await setDoc(doc(db, 'magazzino', key), {
+          nome: ing.nome,
+          g: ing.g,
+          unit: ing.unit || 'kg',
+          _inventario: new Date().toISOString().split('T')[0],
+          _ts: Date.now()
+        }, { merge: true });
+        aggiornati++;
+        if (ing.g > 0) addLog(`  ✅ ${ing.nome}: ${ing.g}g`, 'ok');
+      } catch(e) {
+        addLog(`  ❌ ${ing.nome}: ${e.message}`, 'err');
+      }
+    }
+    addLog(`\n🎉 ${aggiornati} ingredienti aggiornati in magazzino!`, 'ok');
+    addLog('Ricarica la dashboard Brain per vedere il magazzino aggiornato.', 'info');
+  } else {
+    // 3. Prova a leggere direttamente magazzino e mostra valori
+    addLog('\n⚠️ Inventario non trovato come documento strutturato.', 'err');
+    addLog('Verifico valori attuali in magazzino...', 'info');
+    const magSnap = await getDocs(collection(db, 'magazzino'));
+    let conDati = 0;
+    magSnap.forEach(d => {
+      const data = d.data();
+      if (data.g > 0) {
+        addLog(`  ${data.nome}: ${data.g}g`, 'ok');
+        conDati++;
+      }
+    });
+    if (conDati === 0) {
+      addLog('\n❌ Nessun ingrediente con giacenza > 0 trovato.', 'err');
+      addLog('L\'inventario potrebbe non essere stato salvato correttamente.', 'err');
+      addLog('Soluzione: riapri greed_inventario.html e risalva — ora i path sono corretti.', 'info');
+    } else {
+      addLog(`\n✅ ${conDati} ingredienti con giacenza > 0 trovati.`, 'ok');
+      addLog('Il magazzino ha dati ma la dashboard non li mostra — problema di visualizzazione.', 'info');
+    }
+  }
+})();
+</script>
+</body>
+</html>

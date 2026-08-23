@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GREED — Pulizie & Sanificazione</title>
+<style>
+:root {
+  --dark:   #0f1a13;
+  --panel:  #16241c;
+  --border: #243b2a;
+  --lime:   #a7c84b;
+  --lime2:  #c5e05a;
+  --cream:  #f6f0e2;
+  --amber:  #e0a028;
+  --red:    #c0392b;
+  --muted:  #5a7d62;
+  --text:   #d8ead0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--dark);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* LOGIN */
+#login-screen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 100vh; padding: 24px;
+}
+.login-logo { font-size: 36px; font-weight: 900; color: var(--lime); letter-spacing: -2px; margin-bottom: 4px; }
+.login-sub { font-size: 13px; color: var(--muted); margin-bottom: 40px; }
+.pin-display {
+  display: flex; gap: 12px; margin-bottom: 28px;
+}
+.pin-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--border); background: transparent;
+  transition: background .15s;
+}
+.pin-dot.filled { background: var(--lime); border-color: var(--lime); }
+.pin-grid {
+  display: grid; grid-template-columns: repeat(3, 72px);
+  gap: 10px;
+}
+.pin-btn {
+  height: 72px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); font-size: 22px; font-weight: 700;
+  cursor: pointer; transition: all .12s;
+}
+.pin-btn:hover { background: var(--border); }
+.pin-btn:active { transform: scale(.94); }
+.pin-btn.del { font-size: 16px; color: var(--muted); }
+.pin-error { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 20px; }
+.user-chips { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 28px; }
+.user-chip {
+  padding: 8px 18px; border-radius: 20px;
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); font-size: 14px; cursor: pointer;
+  transition: all .15s;
+}
+.user-chip.active { background: var(--lime); color: var(--dark); border-color: var(--lime); font-weight: 700; }
+
+/* APP */
+#app { display: none; }
+
+/* HEADER */
+.app-header {
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 14px; }
+.app-logo { font-size: 20px; font-weight: 900; color: var(--lime); }
+.header-date { font-size: 13px; color: var(--muted); }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.operator-badge {
+  background: var(--dark); border: 1px solid var(--border);
+  border-radius: 20px; padding: 5px 12px;
+  font-size: 12px; color: var(--lime);
+}
+.btn-logout {
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 8px; padding: 6px 12px;
+  font-size: 12px; cursor: pointer;
+}
+
+/* PROGRESS BAR */
+.progress-bar {
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex; align-items: center; gap: 14px;
+}
+.progress-track {
+  flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; background: var(--lime); border-radius: 3px;
+  transition: width .4s ease;
+}
+.progress-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.progress-pct { font-size: 13px; font-weight: 700; color: var(--lime); }
+
+/* MONTH NAV */
+.month-nav {
+  display: flex; align-items: center; gap: 0;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  padding: 10px 20px; overflow-x: auto;
+}
+.month-nav-label { font-size: 13px; color: var(--muted); margin-right: 12px; white-space: nowrap; }
+.day-pills { display: flex; gap: 6px; }
+.day-pill {
+  min-width: 36px; height: 36px; border-radius: 8px;
+  background: var(--dark); border: 1px solid var(--border);
+  color: var(--muted); font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .12s; position: relative;
+}
+.day-pill.today { border-color: var(--lime); color: var(--lime); }
+.day-pill.complete { background: var(--lime); color: var(--dark); border-color: var(--lime); }
+.day-pill.partial { background: var(--amber); color: var(--dark); border-color: var(--amber); }
+.day-pill.selected { outline: 2px solid var(--lime2); outline-offset: 2px; }
+
+/* MAIN CONTENT */
+.main { padding: 20px; max-width: 900px; margin: 0 auto; }
+
+/* ZONA */
+.zona-block {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; margin-bottom: 16px; overflow: hidden;
+}
+.zona-header {
+  padding: 14px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+}
+.zona-title { display: flex; align-items: center; gap: 10px; }
+.zona-icon { font-size: 20px; }
+.zona-name { font-size: 15px; font-weight: 700; }
+.zona-count { font-size: 12px; color: var(--muted); }
+.zona-chevron { color: var(--muted); font-size: 14px; transition: transform .2s; }
+.zona-block.open .zona-chevron { transform: rotate(180deg); }
+.zona-progress-mini {
+  width: 60px; height: 4px; background: var(--border); border-radius: 2px;
+  overflow: hidden;
+}
+.zona-progress-mini-fill { height: 100%; background: var(--lime); border-radius: 2px; transition: width .3s; }
+
+.zona-items { display: none; border-top: 1px solid var(--border); }
+.zona-block.open .zona-items { display: block; }
+
+.check-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .12s;
+}
+.check-item:last-child { border-bottom: none; }
+.check-item:hover { background: rgba(167,200,75,.06); }
+.check-item.done { background: rgba(167,200,75,.04); }
+
+.check-box {
+  width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
+  border: 2px solid var(--border); background: var(--dark);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.check-item.done .check-box {
+  background: var(--lime); border-color: var(--lime);
+}
+.check-icon { color: var(--dark); font-size: 14px; font-weight: 900; display: none; }
+.check-item.done .check-icon { display: block; }
+
+.check-label { flex: 1; font-size: 14px; }
+.check-item.done .check-label { color: var(--muted); text-decoration: line-through; }
+.check-time { font-size: 11px; color: var(--muted); }
+
+/* FIRMA */
+.firma-section {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px; margin-top: 8px;
+}
+.firma-title { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+.firma-info { font-size: 13px; color: var(--text); margin-bottom: 14px; line-height: 1.6; }
+.btn-firma {
+  width: 100%; padding: 16px; border-radius: 10px; border: none;
+  background: var(--lime); color: var(--dark);
+  font-size: 15px; font-weight: 800; cursor: pointer;
+  transition: all .15s; letter-spacing: .3px;
+}
+.btn-firma:hover { background: var(--lime2); }
+.btn-firma:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+.firma-done {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px; background: rgba(167,200,75,.12);
+  border: 1px solid var(--lime); border-radius: 10px;
+  font-size: 13px; color: var(--lime);
+}
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--lime); color: var(--dark);
+  padding: 12px 24px; border-radius: 10px; font-weight: 700; font-size: 14px;
+  z-index: 999; opacity: 0; transition: opacity .2s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* STORICO */
+.storico-btn {
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 8px; padding: 8px 14px;
+  font-size: 12px; cursor: pointer; margin-bottom: 16px;
+}
+
+/* Completato badge */
+.completed-banner {
+  background: rgba(167,200,75,.12); border: 1px solid var(--lime);
+  border-radius: 10px; padding: 14px 18px;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 14px; color: var(--lime); margin-bottom: 16px;
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-logo">GREED</div>
+  <div class="login-sub">Pulizie & Sanificazione — HACCP</div>
+
+  <div class="user-chips" id="user-chips"></div>
+  <div class="pin-display" id="pin-display"></div>
+  <div class="pin-grid">
+    <button class="pin-btn" onclick="pinPress('1')">1</button>
+    <button class="pin-btn" onclick="pinPress('2')">2</button>
+    <button class="pin-btn" onclick="pinPress('3')">3</button>
+    <button class="pin-btn" onclick="pinPress('4')">4</button>
+    <button class="pin-btn" onclick="pinPress('5')">5</button>
+    <button class="pin-btn" onclick="pinPress('6')">6</button>
+    <button class="pin-btn" onclick="pinPress('7')">7</button>
+    <button class="pin-btn" onclick="pinPress('8')">8</button>
+    <button class="pin-btn" onclick="pinPress('9')">9</button>
+    <button class="pin-btn" onclick="pinPress('0')" style="grid-column:2">0</button>
+    <button class="pin-btn del" onclick="pinDel()">⌫</button>
+  </div>
+  <div class="pin-error" id="pin-error"></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="app-header">
+    <div class="header-left">
+      <div class="app-logo">GREED</div>
+      <div class="header-date" id="header-date"></div>
+    </div>
+    <div class="header-right">
+      <div class="operator-badge" id="operator-badge"></div>
+      <button class="btn-logout" onclick="logout()">Esci</button>
+    </div>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-track"><div class="progress-fill" id="main-progress"></div></div>
+    <div class="progress-label" id="progress-label"></div>
+    <div class="progress-pct" id="progress-pct"></div>
+  </div>
+
+  <div class="month-nav">
+    <div class="month-nav-label" id="month-label"></div>
+    <div class="day-pills" id="day-pills"></div>
+  </div>
+
+  <div class="main" id="main-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ── CONFIG ──────────────────────────────────────────────
+const FB_CONFIG = {
+  apiKey: "AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4",
+  projectId: "club-greed",
+  appId: "1:704669833762:web:917f4c7b104bc8ad39087b"
+};
+
+// ── OPERATORI con PIN ────────────────────────────────────
+const OPERATORI = [
+  { nome: "FABIO", pin: "1234", admin: true },
+];
+
+// ── CHECKLIST ZONE ───────────────────────────────────────
+const ZONE = [
+  {
+    id: "gelateria",
+    nome: "Gelateria",
+    icon: "🍦",
+    voci: [
+      "Pavimenti",
+      "Piani lavoro",
+      "Lavelli",
+      "Taglieri / Utensileria",
+      "Vetrine espositrici interno",
+      "Vetrine espositrici esterno",
+      "Attrezzature (es. monta panna)",
+      "Mensole",
+      "Espositori vari",
+      "Superfici lavabili",
+      "Infissi",
+      "Soffitti",
+      "Porta rifiuti",
+      "Luci",
+    ]
+  },
+  {
+    id: "laboratorio",
+    nome: "Laboratorio",
+    icon: "🧪",
+    voci: [
+      "Pavimenti",
+      "Piani lavoro",
+      "Frigoriferi",
+      "Lavelli / lavamani",
+      "Scaffali",
+      "Pareti lavabili",
+      "Soffitti",
+      "Luci",
+    ]
+  },
+  {
+    id: "magazzino",
+    nome: "Magazzino",
+    icon: "📦",
+    voci: [
+      "Pavimenti",
+      "Scaffali",
+      "Soffitti",
+      "Luci",
+    ]
+  },
+  {
+    id: "bagno",
+    nome: "Bagno / Spogliatoio",
+    icon: "🚿",
+    voci: [
+      "Pavimenti",
+      "Sanitari",
+      "Pareti lavabili / Infissi",
+      "Soffitti / Luci",
+      "Porta rifiuti",
+      "Armadietti",
+    ]
+  }
+];
+
+// ── STATO ────────────────────────────────────────────────
+let db, currentUser = null, currentPin = "";
+let selectedDay = null;
+let checklistData = {}; // { "gelateria_Pavimenti": { fatto: true, ora: "09:12", op: "DARIO" } }
+let firmaData = null;
+const today = new Date();
+const todayStr = today.toISOString().split('T')[0];
+
+// ── INIT ─────────────────────────────────────────────────
+(async () => {
+  const app = initializeApp(FB_CONFIG);
+  db = getFirestore(app);
+  renderUserChips();
+  renderPinDots();
+})();
+
+// ── LOGIN ─────────────────────────────────────────────────
+function renderUserChips() {
+  const el = document.getElementById('user-chips');
+  el.innerHTML = OPERATORI.map(o =>
+    `<div class="user-chip" id="chip-${o.nome}" onclick="selectUser('${o.nome}')">${o.nome}</div>`
+  ).join('');
+}
+
+window.selectUser = function(nome) {
+  currentUser = nome;
+  currentPin = "";
+  renderPinDots();
+  document.querySelectorAll('.user-chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('chip-' + nome)?.classList.add('active');
+  document.getElementById('pin-error').textContent = '';
+};
+
+function renderPinDots() {
+  const el = document.getElementById('pin-display');
+  el.innerHTML = Array(4).fill(0).map((_, i) =>
+    `<div class="pin-dot ${i < currentPin.length ? 'filled' : ''}"></div>`
+  ).join('');
+}
+
+window.pinPress = function(d) {
+  if (!currentUser) {
+    document.getElementById('pin-error').textContent = 'Seleziona il tuo nome prima';
+    return;
+  }
+  if (currentPin.length >= 4) return;
+  currentPin += d;
+  renderPinDots();
+  if (currentPin.length === 4) checkPin();
+};
+
+window.pinDel = function() {
+  currentPin = currentPin.slice(0, -1);
+  renderPinDots();
+};
+
+function checkPin() {
+  const op = OPERATORI.find(o => o.nome === currentUser);
+  if (!op || op.pin !== currentPin) {
+    document.getElementById('pin-error').textContent = 'PIN non corretto';
+    setTimeout(() => { currentPin = ""; renderPinDots(); }, 700);
+    return;
+  }
+  document.getElementById('pin-error').textContent = '';
+  doLogin();
+}
+
+async function doLogin() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('operator-badge').textContent = '👤 ' + currentUser;
+
+  const mesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+    'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  document.getElementById('header-date').textContent =
+    `${today.getDate()} ${mesi[today.getMonth()]} ${today.getFullYear()}`;
+  document.getElementById('month-label').textContent =
+    mesi[today.getMonth()] + ' ' + today.getFullYear();
+
+  selectedDay = todayStr;
+  renderDayPills();
+  await loadChecklist(todayStr);
+  renderChecklist();
+}
+
+window.logout = function() {
+  currentUser = null; currentPin = "";
+  checklistData = {}; firmaData = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.querySelectorAll('.user-chip').forEach(c => c.classList.remove('active'));
+  renderPinDots();
+};
+
+// ── GIORNI DEL MESE ──────────────────────────────────────
+function renderDayPills() {
+  const el = document.getElementById('day-pills');
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  let html = '';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = ds === todayStr;
+    const isSel = ds === selectedDay;
+    html += `<div class="day-pill ${isToday?'today':''} ${isSel?'selected':''}" id="pill-${ds}" onclick="selectDay('${ds}')">${d}</div>`;
+  }
+  el.innerHTML = html;
+  // Scroll al giorno corrente
+  setTimeout(() => {
+    document.getElementById('pill-' + todayStr)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, 100);
+}
+
+window.selectDay = async function(ds) {
+  selectedDay = ds;
+  renderDayPills();
+  await loadChecklist(ds);
+  renderChecklist();
+};
+
+// ── FIRESTORE ────────────────────────────────────────────
+function docId(ds) {
+  return `pulizie_${ds}`;
+}
+
+async function loadChecklist(ds) {
+  checklistData = {};
+  firmaData = null;
+  try {
+    const snap = await getDoc(doc(db, 'pulizie', docId(ds)));
+    if (snap.exists()) {
+      const d = snap.data();
+      checklistData = d.checks || {};
+      firmaData = d.firma || null;
+    }
+  } catch(e) {
+    console.error('Load error:', e);
+  }
+}
+
+async function saveChecklist() {
+  try {
+    await setDoc(doc(db, 'haccp/pulizie/giorni', docId(selectedDay)), {
+      data: selectedDay,
+      checks: checklistData,
+      firma: firmaData,
+      _ts: Date.now()
+    });
+    // Aggiorna pillola colore
+    updatePillColor(selectedDay);
+  } catch(e) {
+    console.error('Save error:', e);
+    showToast('❌ Errore salvataggio');
+  }
+}
+
+function updatePillColor(ds) {
+  const pill = document.getElementById('pill-' + ds);
+  if (!pill) return;
+  const totale = ZONE.reduce((a, z) => a + z.voci.length, 0);
+  const fatte = Object.values(checklistData).filter(v => v.fatto).length;
+  pill.classList.remove('complete','partial');
+  if (fatte === totale && firmaData) pill.classList.add('complete');
+  else if (fatte > 0) pill.classList.add('partial');
+}
+
+// ── CHECKLIST RENDER ─────────────────────────────────────
+function renderChecklist() {
+  // Salva quali zone sono aperte prima di ricostruire
+  const zoneAperte = new Set();
+  ZONE.forEach(z => {
+    const el = document.getElementById('zona-' + z.id);
+    if(el && el.classList.contains('open')) zoneAperte.add(z.id);
+  });
+  const isReadonly = selectedDay !== todayStr;
+  const totale = ZONE.reduce((a, z) => a + z.voci.length, 0);
+  const fatte = Object.values(checklistData).filter(v => v.fatto).length;
+  const pct = totale > 0 ? Math.round(fatte / totale * 100) : 0;
+
+  document.getElementById('main-progress').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = `${fatte} di ${totale} completate`;
+  document.getElementById('progress-pct').textContent = pct + '%';
+
+  let html = '';
+
+  if (isReadonly) {
+    html += `<div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--muted);">
+      📅 Visualizzazione storico — ${formatDate(selectedDay)}
+    </div>`;
+  }
+
+  if (firmaData && !isReadonly) {
+    html += `<div class="completed-banner">✅ Giornata firmata da ${firmaData.op} alle ${firmaData.ora}</div>`;
+  }
+
+  ZONE.forEach((zona, zi) => {
+    const fatteZona = zona.voci.filter(v => checklistData[`${zona.id}_${v}`]?.fatto).length;
+    const pctZona = Math.round(fatteZona / zona.voci.length * 100);
+    const isOpen = zoneAperte.size > 0 ? zoneAperte.has(zona.id) : zi === 0;
+    html += `
+    <div class="zona-block ${isOpen ? 'open' : ''}" id="zona-${zona.id}">
+      <div class="zona-header" onclick="toggleZona('${zona.id}')">
+        <div class="zona-title">
+          <span class="zona-icon">${zona.icon}</span>
+          <div>
+            <div class="zona-name">${zona.nome}</div>
+            <div class="zona-count">${fatteZona}/${zona.voci.length} completate</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="zona-progress-mini">
+            <div class="zona-progress-mini-fill" style="width:${pctZona}%"></div>
+          </div>
+          <span class="zona-chevron">▼</span>
+        </div>
+      </div>
+      <div class="zona-items">
+        ${zona.voci.map(voce => {
+          const key = `${zona.id}_${voce}`;
+          const stato = checklistData[key];
+          const fatto = stato?.fatto || false;
+          return `
+          <div class="check-item ${fatto ? 'done' : ''}" id="item-${key}" 
+               ${!isReadonly ? `onclick="toggleItem('${zona.id}','${voce.replace(/'/g,"\\'")}','${key}',event)"` : ''}>
+            <div class="check-box"><span class="check-icon">✓</span></div>
+            <div class="check-label">${voce}</div>
+            ${fatto && stato.ora ? `<div class="check-time">${stato.ora}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+
+  // Sezione firma
+  if (!isReadonly) {
+    html += `<div class="firma-section">
+      <div class="firma-title">Firma responsabile</div>`;
+    if (firmaData) {
+      html += `<div class="firma-done">✅ Firmato da ${firmaData.op} — ${firmaData.ora} — ${formatDate(selectedDay)}</div>`;
+    } else {
+      const tutteOk = fatte === totale;
+      html += `
+        <div class="firma-info">
+          ${tutteOk
+            ? '✅ Tutte le operazioni completate. Premi per firmare la giornata.'
+            : `⚠️ Ancora ${totale - fatte} operazioni da completare.`}
+        </div>
+        <button class="btn-firma" ${!tutteOk ? 'disabled' : ''} onclick="firmaGiornata()">
+          ✍️ Firma e chiudi giornata — ${currentUser}
+        </button>`;
+    }
+    html += `</div>`;
+  }
+
+  document.getElementById('main-content').innerHTML = html;
+}
+
+// ── INTERAZIONI ───────────────────────────────────────────
+window.toggleZona = function(id) {
+  document.getElementById('zona-' + id).classList.toggle('open');
+};
+
+window.toggleItem = async function(zonaId, voce, key, event) {
+  if(event) event.stopPropagation();
+  if (firmaData) return; // giornata già firmata
+  const stato = checklistData[key];
+  if (stato?.fatto) {
+    // Deseleziona
+    checklistData[key] = { fatto: false };
+  } else {
+    const ora = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+    checklistData[key] = { fatto: true, ora, op: currentUser };
+  }
+  await saveChecklist();
+  renderChecklist();
+  showToast(checklistData[key]?.fatto ? '✓ ' + voce : voce + ' deselezionato');
+};
+
+window.firmaGiornata = async function() {
+  const ora = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+  firmaData = { op: currentUser, ora, data: selectedDay };
+  await saveChecklist();
+  renderChecklist();
+  showToast('✅ Giornata firmata!');
+};
+
+// ── UTILS ─────────────────────────────────────────────────
+function formatDate(ds) {
+  const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const [y, m, d] = ds.split('-');
+  return `${parseInt(d)} ${mesi[parseInt(m)-1]} ${y}`;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>

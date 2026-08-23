@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GREED Brain — Migrazione Firebase</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1a13;
+    color: #e8f0ea;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #2a3d2e;
+  }
+  .logo { font-size: 28px; font-weight: 900; color: #a7c84b; letter-spacing: -1px; }
+  .subtitle { font-size: 13px; color: #6b8f72; margin-top: 2px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  @media(max-width:700px){ .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: #16241c;
+    border: 1px solid #2a3d2e;
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card h3 { font-size: 13px; color: #6b8f72; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+  input[type=file], input[type=text] {
+    width: 100%; padding: 10px 14px;
+    background: #0f1a13; border: 1px solid #2a3d2e;
+    border-radius: 8px; color: #e8f0ea; font-size: 14px;
+    margin-bottom: 10px;
+  }
+  input[type=text]::placeholder { color: #3d5c44; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 20px; border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: all .15s;
+  }
+  .btn-primary { background: #a7c84b; color: #0f1a13; }
+  .btn-primary:hover { background: #c0e055; }
+  .btn-primary:disabled { background: #3d5c44; color: #6b8f72; cursor: not-allowed; }
+  .btn-danger { background: #c0392b; color: #fff; }
+  .btn-full { width: 100%; justify-content: center; margin-top: 8px; }
+
+  .collections {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin: 16px 0;
+  }
+  .col-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #0f1a13; border: 1px solid #2a3d2e;
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .col-name { font-size: 13px; font-weight: 600; }
+  .col-count {
+    font-size: 12px; color: #6b8f72;
+    background: #1e3024; padding: 2px 8px; border-radius: 20px;
+  }
+  .col-status { width: 8px; height: 8px; border-radius: 50%; background: #2a3d2e; }
+  .col-status.ok { background: #a7c84b; }
+  .col-status.error { background: #c0392b; }
+  .col-status.loading { background: #e0a028; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  #log {
+    background: #0a1209; border: 1px solid #1e3024;
+    border-radius: 8px; padding: 16px;
+    font-family: 'Courier New', monospace; font-size: 12px;
+    height: 280px; overflow-y: auto; line-height: 1.6;
+  }
+  .log-ok { color: #a7c84b; }
+  .log-err { color: #e74c3c; }
+  .log-info { color: #6b8f72; }
+  .log-warn { color: #e0a028; }
+
+  .progress-bar {
+    height: 6px; background: #1e3024; border-radius: 3px;
+    margin: 12px 0; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: #a7c84b; border-radius: 3px;
+    transition: width .3s; width: 0%;
+  }
+
+  .stats-row {
+    display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0;
+  }
+  .stat {
+    background: #0f1a13; border: 1px solid #2a3d2e;
+    border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 100px;
+    text-align: center;
+  }
+  .stat-n { font-size: 22px; font-weight: 900; color: #a7c84b; }
+  .stat-l { font-size: 11px; color: #6b8f72; margin-top: 2px; }
+
+  .warning-box {
+    background: #2d1a00; border: 1px solid #e0a028;
+    border-radius: 8px; padding: 14px 16px;
+    font-size: 13px; color: #e0a028; margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 16px; font-weight: 700; color: #a7c84b;
+    margin: 24px 0 12px; display: flex; align-items: center; gap: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="logo">GREED Brain</div>
+    <div class="subtitle">Migrazione dati → Firebase Firestore</div>
+  </div>
+</div>
+
+<div class="warning-box">
+  ⚠️ Esegui questa migrazione UNA SOLA VOLTA. I dati esistenti in Firestore nelle stesse collezioni verranno sovrascritti. Fai un backup Firebase prima di procedere.
+</div>
+
+<!-- STEP 1: Config Firebase -->
+<div class="section-title">① Configurazione Firebase</div>
+<div class="card">
+  <h3>Credenziali progetto club-greed</h3>
+  <input type="text" id="fb-apikey" placeholder="apiKey" value="">
+  <input type="text" id="fb-project" placeholder="projectId" value="club-greed">
+  <input type="text" id="fb-appid" placeholder="appId">
+  <p style="font-size:12px;color:#6b8f72;margin-top:4px;">Trovi le credenziali su Firebase Console → Impostazioni progetto → Le tue app</p>
+</div>
+
+<!-- STEP 2: Carica file -->
+<div class="section-title">② Carica i file di backup</div>
+<div class="grid">
+  <div class="card">
+    <h3>📊 File A — Backup Vendite/Fornitori</h3>
+    <p style="font-size:12px;color:#6b8f72;margin-bottom:4px;">Nome file: <strong style="color:#a7c84b">gelateria_backup_2026-08-12.json</strong></p>
+    <p style="font-size:12px;color:#6b8f72;margin-bottom:12px;">Contiene: vendite giornaliere, fornitori, clienti B2B, consegne, settings</p>
+    <input type="file" id="file-gestionale" accept=".json">
+    <div id="status-gestionale" style="font-size:12px;color:#6b8f72;"></div>
+  </div>
+  <div class="card">
+    <h3>🧪 File B — Backup Ricette/Registro</h3>
+    <p style="font-size:12px;color:#6b8f72;margin-bottom:4px;">Nome file: <strong style="color:#a7c84b">greed-gestionale-backup-2026-07-28__1_.json</strong></p>
+    <p style="font-size:12px;color:#6b8f72;margin-bottom:12px;">Contiene: 61 ricette, 137 ingredienti, 495 produzioni, magazzino</p>
+    <input type="file" id="file-bilanciatore" accept=".json">
+    <div id="status-bilanciatore" style="font-size:12px;color:#6b8f72;"></div>
+  </div>
+</div>
+
+<!-- STEP 3: Anteprima -->
+<div class="section-title">③ Anteprima dati rilevati</div>
+<div class="stats-row">
+  <div class="stat"><div class="stat-n" id="n-ricette">—</div><div class="stat-l">Ricette</div></div>
+  <div class="stat"><div class="stat-n" id="n-ingredienti">—</div><div class="stat-l">Ingredienti</div></div>
+  <div class="stat"><div class="stat-n" id="n-registro">—</div><div class="stat-l">Produzioni</div></div>
+  <div class="stat"><div class="stat-n" id="n-vendite">—</div><div class="stat-l">Giorni vendite</div></div>
+  <div class="stat"><div class="stat-n" id="n-fornitori">—</div><div class="stat-l">Fornitori</div></div>
+  <div class="stat"><div class="stat-n" id="n-b2b">—</div><div class="stat-l">Clienti B2B</div></div>
+</div>
+
+<!-- Collezioni da migrare -->
+<div class="collections" id="collections-grid">
+  <div class="col-item"><span class="col-name">🧪 laboratorio/ricette</span><span class="col-status" id="s-ricette"></span></div>
+  <div class="col-item"><span class="col-name">🧂 laboratorio/ingredienti</span><span class="col-status" id="s-ingredienti"></span></div>
+  <div class="col-item"><span class="col-name">📦 laboratorio/magazzino</span><span class="col-status" id="s-magazzino"></span></div>
+  <div class="col-item"><span class="col-name">📋 laboratorio/registro</span><span class="col-status" id="s-registro"></span></div>
+  <div class="col-item"><span class="col-name">🏭 gestionale/fornitori</span><span class="col-status" id="s-fornitori"></span></div>
+  <div class="col-item"><span class="col-name">👥 gestionale/clientiB2B</span><span class="col-status" id="s-b2b"></span></div>
+  <div class="col-item"><span class="col-name">🚚 gestionale/consegneB2B</span><span class="col-status" id="s-consegne"></span></div>
+  <div class="col-item"><span class="col-name">📊 gestionale/vendite</span><span class="col-status" id="s-vendite"></span></div>
+  <div class="col-item"><span class="col-name">⚙️ gestionale/settings</span><span class="col-status" id="s-settings"></span></div>
+</div>
+
+<!-- STEP 4: Migrazione -->
+<div class="section-title">④ Esegui migrazione</div>
+<div class="card">
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+  <div id="progress-label" style="font-size:12px;color:#6b8f72;margin-bottom:12px;">In attesa...</div>
+  <div id="log"><span class="log-info">GREED Brain Migration Tool v1.0 — In attesa dei file...</span></div>
+  <button class="btn btn-primary btn-full" id="btn-migra" onclick="eseguiMigrazione()" disabled>
+    🚀 Avvia Migrazione
+  </button>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, collection, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// Allergeni EU mapping
+const ALLERGENI_MAP = {
+  'latte': 'Latte', 'panna': 'Latte', 'burro': 'Latte', 'yogurt': 'Latte',
+  'mascarpone': 'Latte', 'ricotta': 'Latte', 'philadelphia': 'Latte',
+  'stracchino': 'Latte', 'gorgonzola': 'Latte', 'pecorino': 'Latte',
+  'parmigiano': 'Latte', 'latte condensato': 'Latte', 'proteine del latte': 'Latte',
+  'proteine del siero': 'Latte', 'latte magro': 'Latte',
+  'uovo': 'Uova', 'tuorlo': 'Uova', 'albume': 'Uova',
+  'pistacchio': 'Frutta a guscio', 'nocciola': 'Frutta a guscio',
+  'mandorla': 'Frutta a guscio', 'noce': 'Frutta a guscio',
+  'granella nocciola': 'Frutta a guscio', 'pasta pistacchio': 'Frutta a guscio',
+  'pasta nocciola': 'Frutta a guscio', 'pasta mandorla': 'Frutta a guscio',
+  'frutta a guscio': 'Frutta a guscio',
+  'arachide': 'Arachidi', 'pasta arachide': 'Arachidi',
+  'savoiardi': 'Glutine', 'farina di frumento': 'Glutine',
+  'soia': 'Soia', 'lecitina di soia': 'Soia',
+  'sesamo': 'Sesamo', 'sedano': 'Sedano', 'senape': 'Senape', 'lupino': 'Lupini',
+  'molluschi': 'Molluschi', 'crostacei': 'Crostacei', 'pesce': 'Pesce', 'alici': 'Pesce',
+  'marsala': 'Anidride solforosa', 'vino': 'Anidride solforosa',
+  'rum': 'Anidride solforosa', 'limoncello': 'Anidride solforosa',
+};
+
+function calcAllergeni(ingredienti) {
+  const trovati = new Set();
+  (ingredienti || []).forEach(ing => {
+    const n = ing.nome.toLowerCase();
+    Object.entries(ALLERGENI_MAP).forEach(([kw, all]) => {
+      if (n.includes(kw)) trovati.add(all);
+    });
+  });
+  return [...trovati].sort();
+}
+
+function log(msg, type='info') {
+  const el = document.getElementById('log');
+  const span = document.createElement('span');
+  span.className = `log-${type}`;
+  span.textContent = '\n' + msg;
+  el.appendChild(span);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progress').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+function setStatus(id, stato) {
+  const el = document.getElementById('s-' + id);
+  if (el) { el.className = 'col-status ' + stato; }
+}
+
+let datiGestionale = null;
+let datiBilanciatore = null;
+
+// Carica file gestionale
+document.getElementById('file-gestionale').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      datiGestionale = JSON.parse(ev.target.result);
+      document.getElementById('status-gestionale').textContent = '✅ ' + f.name + ' caricato';
+      aggiornaStats();
+    } catch(err) {
+      document.getElementById('status-gestionale').textContent = '❌ File non valido';
+    }
+  };
+  reader.readAsText(f);
+});
+
+// Carica file bilanciatore
+document.getElementById('file-bilanciatore').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      datiBilanciatore = JSON.parse(ev.target.result);
+      document.getElementById('status-bilanciatore').textContent = '✅ ' + f.name + ' caricato';
+      aggiornaStats();
+    } catch(err) {
+      document.getElementById('status-bilanciatore').textContent = '❌ File non valido';
+    }
+  };
+  reader.readAsText(f);
+});
+
+function aggiornaStats() {
+  if (datiBilanciatore) {
+    // Supporta sia il formato vecchio (customRecipes) che il nuovo (ricette)
+    const nRicette = datiBilanciatore.customRecipes
+      ? Object.keys(datiBilanciatore.customRecipes).length
+      : (datiBilanciatore.ricette || []).length;
+    const nIngredienti = Object.keys(datiBilanciatore.nutrizionale || {}).length;
+    const nRegistro = (datiBilanciatore.registro || []).length;
+    document.getElementById('n-ricette').textContent = nRicette;
+    document.getElementById('n-ingredienti').textContent = nIngredienti;
+    document.getElementById('n-registro').textContent = nRegistro;
+    if (nRicette === 0 && nIngredienti === 0 && nRegistro === 0) {
+      document.getElementById('status-bilanciatore').innerHTML =
+        '⚠️ <span style="color:#e0a028">File non riconosciuto — carica <strong>greed-gestionale-backup-2026-07-28__1_.json</strong></span>';
+    }
+  }
+  if (datiGestionale) {
+    const y = datiGestionale['2026'] || {};
+    let giorniVendite = 0;
+    (y.months || []).forEach(m => m.days.forEach(d => { if (d.inc > 0) giorniVendite++; }));
+    document.getElementById('n-vendite').textContent = giorniVendite;
+    document.getElementById('n-fornitori').textContent = (y.fornitori || []).length;
+    document.getElementById('n-b2b').textContent = (y.clientiB2B || []).length;
+  }
+  if (datiGestionale || datiBilanciatore) {
+    document.getElementById('btn-migra').disabled = false;
+  }
+}
+
+// Scrivi batch su Firestore (max 500 docs per batch)
+async function writeBatched(db, items, colPath, keyFn) {
+  const BATCH_SIZE = 400;
+  let count = 0;
+  let batch = writeBatch(db);
+  for (const [i, item] of items.entries()) {
+    const id = keyFn(item, i);
+    const ref = doc(db, colPath, id);
+    batch.set(ref, item);
+    count++;
+    if (count === BATCH_SIZE) {
+      await batch.commit();
+      batch = writeBatch(db);
+      count = 0;
+    }
+  }
+  if (count > 0) await batch.commit();
+}
+
+window.eseguiMigrazione = async function() {
+  const apiKey = document.getElementById('fb-apikey').value.trim();
+  const projectId = document.getElementById('fb-project').value.trim();
+  const appId = document.getElementById('fb-appid').value.trim();
+
+  if (!apiKey || !projectId) {
+    alert('Inserisci apiKey e projectId Firebase');
+    return;
+  }
+
+  document.getElementById('btn-migra').disabled = true;
+  document.getElementById('log').innerHTML = '';
+  log('🚀 Avvio migrazione GREED Brain...', 'ok');
+
+  let db;
+  try {
+    const app = initializeApp({ apiKey, projectId, appId }, 'migration-' + Date.now());
+    db = getFirestore(app);
+    log('✅ Firebase connesso: ' + projectId, 'ok');
+  } catch(e) {
+    log('❌ Errore connessione Firebase: ' + e.message, 'err');
+    document.getElementById('btn-migra').disabled = false;
+    return;
+  }
+
+  const total = 9;
+  let done = 0;
+
+  const step = (label) => {
+    done++;
+    setProgress(Math.round(done/total*100), label);
+  };
+
+  // 1. RICETTE
+  if (datiBilanciatore?.customRecipes) {
+    try {
+      log('\n📚 Migrazione ricette...', 'info');
+      setStatus('ricette', 'loading');
+      const ricette = Object.entries(datiBilanciatore.customRecipes).map(([nome, r]) => ({
+        ...r,
+        allergeni: calcAllergeni(r.ingredienti),
+        _migrato: true,
+        _ts: Date.now()
+      }));
+      await writeBatched(db, ricette, 'ricette',
+        (r) => r.nome.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 100));
+      log(`✅ ${ricette.length} ricette migrate con allergeni calcolati`, 'ok');
+      setStatus('ricette', 'ok');
+    } catch(e) {
+      log('❌ Errore ricette: ' + e.message, 'err');
+      setStatus('ricette', 'error');
+    }
+    step('Ricette migrate');
+  }
+
+  // 2. INGREDIENTI
+  if (datiBilanciatore?.nutrizionale) {
+    try {
+      log('\n🧂 Migrazione ingredienti...', 'info');
+      setStatus('ingredienti', 'loading');
+      const items = Object.entries(datiBilanciatore.nutrizionale).map(([nome, vals]) => ({
+        nome, ...vals, _migrato: true, _ts: Date.now()
+      }));
+      await writeBatched(db, items, 'ingredienti',
+        (it) => it.nome.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 100));
+      log(`✅ ${items.length} ingredienti migrati`, 'ok');
+      setStatus('ingredienti', 'ok');
+    } catch(e) {
+      log('❌ Errore ingredienti: ' + e.message, 'err');
+      setStatus('ingredienti', 'error');
+    }
+    step('Ingredienti migrati');
+  }
+
+  // 3. MAGAZZINO
+  if (datiBilanciatore?.magazzino) {
+    try {
+      log('\n📦 Migrazione magazzino...', 'info');
+      setStatus('magazzino', 'loading');
+      const items = Object.entries(datiBilanciatore.magazzino).map(([nome, vals]) => ({
+        nome, ...vals, _migrato: true, _ts: Date.now()
+      }));
+      await writeBatched(db, items, 'magazzino',
+        (it) => it.nome.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 100));
+      log(`✅ ${items.length} voci magazzino migrate`, 'ok');
+      setStatus('magazzino', 'ok');
+    } catch(e) {
+      log('❌ Errore magazzino: ' + e.message, 'err');
+      setStatus('magazzino', 'error');
+    }
+    step('Magazzino migrato');
+  }
+
+  // 4. REGISTRO PRODUZIONI
+  if (datiBilanciatore?.registro) {
+    try {
+      log('\n📋 Migrazione registro produzioni...', 'info');
+      setStatus('registro', 'loading');
+      const items = datiBilanciatore.registro.map(r => ({ ...r, _migrato: true, _ts: Date.now() }));
+      await writeBatched(db, items, 'registro', (r) => r.id);
+      log(`✅ ${items.length} produzioni migrate`, 'ok');
+      setStatus('registro', 'ok');
+    } catch(e) {
+      log('❌ Errore registro: ' + e.message, 'err');
+      setStatus('registro', 'error');
+    }
+    step('Registro migrato');
+  }
+
+  // Da gestionale 2026
+  if (datiGestionale) {
+    const y = datiGestionale['2026'] || {};
+
+    // 5. FORNITORI
+    if (y.fornitori?.length) {
+      try {
+        log('\n🏭 Migrazione fornitori...', 'info');
+        setStatus('fornitori', 'loading');
+        const items = y.fornitori.map(f => ({ ...f, _migrato: true, _ts: Date.now() }));
+        await writeBatched(db, items, 'fornitori',
+          (f) => (f.nome || 'fornitore').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 100));
+        log(`✅ ${items.length} fornitori migrati`, 'ok');
+        setStatus('fornitori', 'ok');
+      } catch(e) {
+        log('❌ Errore fornitori: ' + e.message, 'err');
+        setStatus('fornitori', 'error');
+      }
+    }
+    step('Fornitori migrati');
+
+    // 6. CLIENTI B2B
+    if (y.clientiB2B?.length) {
+      try {
+        log('\n👥 Migrazione clienti B2B...', 'info');
+        setStatus('b2b', 'loading');
+        const items = y.clientiB2B.map(c => ({ ...c, _migrato: true, _ts: Date.now() }));
+        await writeBatched(db, items, 'clientiB2B',
+          (c) => (c.nome || 'cliente').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 100));
+        log(`✅ ${items.length} clienti B2B migrati`, 'ok');
+        setStatus('b2b', 'ok');
+      } catch(e) {
+        log('❌ Errore B2B: ' + e.message, 'err');
+        setStatus('b2b', 'error');
+      }
+    }
+    step('Clienti B2B migrati');
+
+    // 7. CONSEGNE B2B
+    if (y.consegneB2B?.length) {
+      try {
+        log('\n🚚 Migrazione consegne B2B...', 'info');
+        setStatus('consegne', 'loading');
+        const items = y.consegneB2B.map((c, i) => ({ ...c, _id: i, _migrato: true, _ts: Date.now() }));
+        await writeBatched(db, items, 'consegneB2B',
+          (c) => `${c.data || 'x'}_${(c.cliente || 'x').replace(/[^a-zA-Z0-9]/g,'_').substring(0,30)}_${c._id}`);
+        log(`✅ ${items.length} consegne B2B migrate`, 'ok');
+        setStatus('consegne', 'ok');
+      } catch(e) {
+        log('❌ Errore consegne: ' + e.message, 'err');
+        setStatus('consegne', 'error');
+      }
+    }
+    step('Consegne B2B migrate');
+
+    // 8. VENDITE GIORNALIERE
+    try {
+      log('\n📊 Migrazione vendite giornaliere...', 'info');
+      setStatus('vendite', 'loading');
+      const items = [];
+      (y.months || []).forEach((month, mi) => {
+        (month.days || []).forEach((day, gi) => {
+          if (day.inc > 0) {
+            items.push({
+              anno: 2026, mese: mi + 1, giorno: gi + 1,
+              data: `2026-${String(mi+1).padStart(2,'0')}-${String(gi+1).padStart(2,'0')}`,
+              ...day, _migrato: true, _ts: Date.now()
+            });
+          }
+        });
+      });
+      await writeBatched(db, items, 'vendite',
+        (v) => `2026-${String(v.mese).padStart(2,'0')}-${String(v.giorno).padStart(2,'0')}`);
+      log(`✅ ${items.length} giorni di vendite migrati`, 'ok');
+      setStatus('vendite', 'ok');
+    } catch(e) {
+      log('❌ Errore vendite: ' + e.message, 'err');
+      setStatus('vendite', 'error');
+    }
+    step('Vendite migrate');
+
+    // 9. SETTINGS
+    if (y.settings) {
+      try {
+        log('\n⚙️ Migrazione settings...', 'info');
+        setStatus('settings', 'loading');
+        await setDoc(doc(db, 'settings', '2026'), {
+          ...y.settings, anno: 2026, _migrato: true, _ts: Date.now()
+        });
+        log('✅ Settings migrati', 'ok');
+        setStatus('settings', 'ok');
+      } catch(e) {
+        log('❌ Errore settings: ' + e.message, 'err');
+        setStatus('settings', 'error');
+      }
+    }
+    step('Settings migrati');
+  }
+
+  setProgress(100, 'Migrazione completata!');
+  log('\n\n🎉 MIGRAZIONE COMPLETATA — GREED Brain è in cloud!', 'ok');
+  log('Verifica i dati su: https://console.firebase.google.com/project/' + projectId + '/firestore', 'info');
+  document.getElementById('btn-migra').disabled = false;
+};
+</script>
+</body>
+</html>

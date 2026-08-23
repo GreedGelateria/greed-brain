@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>GREED — Esporta Inventario</title>
+<style>
+body { font-family: monospace; background: #0f1a13; color: #a7c84b; padding: 30px; font-size: 14px; }
+#log { white-space: pre-wrap; line-height: 1.9; }
+.err { color: #e74c3c; }
+.ok { color: #a7c84b; }
+.info { color: #5a7d62; }
+.warn { color: #e0a028; }
+</style>
+</head>
+<body>
+<h2 style="margin-bottom:20px">GREED — Recupero Inventario da Firebase</h2>
+<div id="log">🔍 Cerco tutti i dati di inventario su Firebase...\n</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, getDocs, doc, setDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
+const app = initializeApp(FB, 'export-inv');
+const db  = getFirestore(app);
+
+const log = document.getElementById('log');
+function L(msg, t='ok') { log.innerHTML += `<span class="${t}">${msg}\n</span>`; }
+
+(async () => {
+  const oggi = new Date().toISOString().split('T')[0];
+  const PATHS = [
+    'laboratorio/inventari/docs',
+    'inventari',
+    'laboratorio/magazzino/docs',
+    'magazzino',
+  ];
+
+  let miglioreInventario = null;
+  let miglioreData = null;
+
+  for (const path of PATHS) {
+    try {
+      const snap = await getDocs(collection(db, path));
+      if (snap.empty) { L(`  ⟳ ${path} — vuoto`, 'info'); continue; }
+
+      L(`\n📂 ${path} — ${snap.size} documenti:`, 'warn');
+      snap.forEach(d => {
+        const data = d.data();
+
+        // Caso 1: documento inventario strutturato con array ingredienti
+        if (data.ingredienti && Array.isArray(data.ingredienti)) {
+          const conValori = data.ingredienti.filter(i => i.g > 0);
+          L(`  📋 ${d.id}: ${data.ingredienti.length} ingredienti, ${conValori.length} con valori > 0`, 'ok');
+          if (conValori.length > (miglioreInventario?.filter(i=>i.g>0).length || 0)) {
+            miglioreInventario = data.ingredienti;
+            miglioreData = data.data || d.id;
+          }
+        }
+
+        // Caso 2: singolo ingrediente
+        if (data.nome && data.g !== undefined) {
+          L(`  🧂 ${data.nome}: ${data.g}g`, data.g > 0 ? 'ok' : 'info');
+        }
+      });
+    } catch(e) {
+      L(`  ⚠️ ${path}: ${e.message}`, 'err');
+    }
+  }
+
+  // Se trovato inventario strutturato con valori
+  if (miglioreInventario && miglioreInventario.filter(i=>i.g>0).length > 0) {
+    L(`\n✅ INVENTARIO TROVATO — ${miglioreInventario.filter(i=>i.g>0).length} ingredienti con valori reali`, 'ok');
+    L(`📅 Data inventario: ${miglioreData}`, 'ok');
+
+    // Scarica JSON
+    const export_data = {
+      data: miglioreData,
+      versione: '1.0',
+      fonte: 'recupero-firebase',
+      ingredienti: miglioreInventario
+    };
+    const blob = new Blob([JSON.stringify(export_data, null, 2)], {type:'application/json'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `greed_inventario_${miglioreData}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    L(`\n💾 FILE SCARICATO: greed_inventario_${miglioreData}.json`, 'ok');
+
+    // Aggiorna anche magazzino Firebase con i valori reali
+    L('\n🔄 Aggiorno collezione magazzino con i valori reali...', 'warn');
+    let aggiornati = 0;
+    for (const ing of miglioreInventario) {
+      if (!ing.nome || ing.g === 0) continue;
+      const key = ing.nome.replace(/[^a-zA-Z0-9_-]/g,'_').substring(0,100);
+      try {
+        await setDoc(doc(db, 'magazzino', key), {
+          nome: ing.nome, g: ing.g, unit: ing.unit||'kg',
+          _inventario: miglioreData, _ts: Date.now(), _sync: 'recupero'
+        }, { merge: true });
+        aggiornati++;
+      } catch(e) { L(`  ❌ ${ing.nome}: ${e.message}`, 'err'); }
+    }
+    L(`✅ ${aggiornati} ingredienti aggiornati in magazzino!`, 'ok');
+    L('\n🎉 FATTO — ricarica la dashboard Brain per vedere il magazzino aggiornato.', 'ok');
+
+  } else {
+    // Prova a costruire inventario dai singoli documenti magazzino
+    L('\n⚠️ Nessun inventario strutturato trovato.', 'err');
+    L('Provo a costruire inventario dai singoli documenti magazzino...', 'warn');
+
+    try {
+      const magSnap = await getDocs(collection(db, 'magazzino'));
+      const ingredienti = [];
+      magSnap.forEach(d => {
+        const data = d.data();
+        if (data.nome) {
+          ingredienti.push({ nome: data.nome, g: data.g||0, unit: data.unit||'kg', valore: (data.g||0)/1000 });
+          if (data.g > 0) L(`  ${data.nome}: ${data.g}g`, 'ok');
+        }
+      });
+
+      const conValori = ingredienti.filter(i => i.g > 0);
+      if (conValori.length > 0) {
+        L(`\n✅ Trovati ${conValori.length} ingredienti con valori in magazzino`, 'ok');
+        const export_data = { data: oggi, versione:'1.0', fonte:'magazzino-firebase', ingredienti };
+        const blob = new Blob([JSON.stringify(export_data, null, 2)], {type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `greed_inventario_${oggi}.json`; a.click();
+        URL.revokeObjectURL(url);
+        L(`💾 FILE SCARICATO: greed_inventario_${oggi}.json`, 'ok');
+      } else {
+        L('\n❌ Nessun valore > 0 trovato su Firebase.', 'err');
+        L('Purtroppo l\'inventario non è stato salvato correttamente la prima volta.', 'err');
+        L('Dovrai reinserirlo — ma questa volta verrà scaricato automaticamente sul PC.', 'warn');
+      }
+    } catch(e) {
+      L('Errore: ' + e.message, 'err');
+    }
+  }
+})();
+</script>
+</body>
+</html>

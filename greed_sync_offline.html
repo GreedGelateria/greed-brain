@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>GREED — Sync Produzioni Offline</title>
+<style>
+body { font-family: monospace; background: #0f1a13; color: #a7c84b; padding: 30px; font-size: 13px; }
+#log { white-space: pre-wrap; line-height: 1.9; }
+.err { color: #e74c3c; } .ok { color: #a7c84b; } .info { color: #5a7d62; } .warn { color: #e0a028; }
+.btn { background: #a7c84b; color: #0f1a13; border: none; border-radius: 8px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h2 style="margin-bottom:8px">GREED — Sync Produzioni Offline → Firebase</h2>
+<p style="color:#5a7d62;margin-bottom:20px;font-size:13px">Legge il registro dal gestionale locale e carica le produzioni mancanti su Firebase</p>
+<div id="log">⚠️ ATTENZIONE: apri questo file dallo stesso browser dove usi il gestionale (gelateria_v3.html)\n</div>
+<button class="btn" onclick="avvia()">🚀 Avvia Sync</button>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, getDoc, getDocs, collection }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
+const app = initializeApp(FB, 'sync-offline');
+const db  = getFirestore(app);
+
+const log = document.getElementById('log');
+function L(msg, t='ok') { log.innerHTML += `<span class="${t}">${msg}\n</span>`; }
+
+window.avvia = async function() {
+  document.querySelector('.btn').disabled = true;
+  log.innerHTML = '';
+
+  // 1. Leggi registro da localStorage
+  L('📂 Leggo registro da localStorage...', 'info');
+  let registro = [];
+  try {
+    const raw = localStorage.getItem('g3_registro');
+    if (!raw) {
+      // Prova anche senza prefisso
+      const raw2 = localStorage.getItem('registro');
+      if (!raw2) { L('❌ Nessun registro trovato in localStorage', 'err'); return; }
+      registro = JSON.parse(raw2);
+    } else {
+      registro = JSON.parse(raw);
+    }
+  } catch(e) {
+    L('❌ Errore lettura localStorage: ' + e.message, 'err');
+    return;
+  }
+
+  if (!registro.length) { L('⚠️ Registro vuoto', 'warn'); return; }
+  L(`✅ Trovate ${registro.length} produzioni in locale`, 'ok');
+
+  // 2. Leggi produzioni già su Firebase
+  L('\n🔍 Verifico quali produzioni sono già su Firebase...', 'info');
+  const snap = await getDocs(collection(db, 'registro'));
+  const suFirebase = new Set();
+  snap.forEach(d => suFirebase.add(d.id));
+  L(`Firebase ha già ${suFirebase.size} produzioni`, 'info');
+
+  // 3. Trova mancanti
+  const mancanti = registro.filter(r => r.id && !suFirebase.has(r.id));
+  L(`\n📋 Produzioni mancanti da caricare: ${mancanti.length}`, mancanti.length > 0 ? 'warn' : 'ok');
+
+  if (!mancanti.length) {
+    L('\n✅ Firebase è già aggiornato — nessuna produzione mancante!', 'ok');
+    return;
+  }
+
+  // Mostra le mancanti raggruppate per data
+  const perData = {};
+  mancanti.forEach(r => {
+    if (!perData[r.data]) perData[r.data] = [];
+    perData[r.data].push(r);
+  });
+  Object.entries(perData).sort((a,b) => b[0].localeCompare(a[0])).forEach(([data, list]) => {
+    L(`  📅 ${data}: ${list.map(r => r.gusto).join(', ')}`, 'warn');
+  });
+
+  // 4. Carica su Firebase
+  L('\n🔄 Carico produzioni mancanti su Firebase...', 'info');
+  let caricati = 0;
+  for (const r of mancanti) {
+    try {
+      await setDoc(doc(db, 'registro', r.id), {
+        ...r,
+        _sync: 'sync-offline',
+        _ts: Date.now()
+      });
+      caricati++;
+      if (caricati % 10 === 0) L(`  ✅ ${caricati}/${mancanti.length} caricate...`, 'ok');
+    } catch(e) {
+      L(`  ❌ ${r.id}: ${e.message}`, 'err');
+    }
+  }
+
+  L(`\n🎉 FATTO — ${caricati} produzioni caricate su Firebase!`, 'ok');
+  L('Ricarica la dashboard Brain per vedere le produzioni aggiornate.', 'info');
+  document.querySelector('.btn').disabled = false;
+};
+</script>
+</body>
+</html>
