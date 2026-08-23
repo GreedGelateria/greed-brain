@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GREED — Carico DDT</title>
+<style>
+:root {
+  --dark: #0f1a13; --panel: #16241c; --border: #243b2a;
+  --lime: #a7c84b; --amber: #e0a028; --red: #e74c3c;
+  --muted: #5a7d62; --text: #d8ead0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: var(--text); min-height: 100vh; }
+
+/* PIN */
+#pin-screen {
+  position: fixed; top:0; left:0; width:100%; height:100%;
+  background: var(--dark); z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.pin-logo { font-size: 28px; font-weight: 900; color: var(--lime); margin-bottom: 4px; }
+.pin-sub { font-size: 13px; color: var(--muted); margin-bottom: 32px; }
+.pin-dots { display: flex; gap: 12px; margin-bottom: 24px; }
+.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); background: transparent; transition: all .15s; }
+.pin-dot.filled { background: var(--lime); border-color: var(--lime); }
+.pin-grid { display: grid; grid-template-columns: repeat(3, 68px); gap: 10px; }
+.pin-btn { height: 68px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); color: var(--text); font-size: 20px; font-weight: 700; cursor: pointer; }
+.pin-btn:active { transform: scale(.94); }
+.pin-err { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 18px; }
+
+/* APP */
+#app { display: none; max-width: 680px; margin: 0 auto; padding: 24px; }
+.header { text-align: center; margin-bottom: 28px; }
+.header h1 { font-size: 22px; font-weight: 900; color: var(--lime); }
+.header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* STEP 1 */
+.upload-area {
+  border: 2px dashed var(--border); border-radius: 14px;
+  padding: 48px 24px; text-align: center; cursor: pointer;
+  transition: all .2s; margin-bottom: 20px;
+}
+.upload-area:hover { border-color: var(--lime); background: rgba(167,200,75,.05); }
+.upload-icon { font-size: 48px; margin-bottom: 12px; }
+.upload-text { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.upload-sub { font-size: 13px; color: var(--muted); }
+
+/* STATUS */
+.status-box {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; margin-bottom: 20px;
+  font-size: 13px; display: none;
+}
+.status-box.show { display: block; }
+.spinner { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* FORM */
+.form-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px; margin-bottom: 16px; display: none;
+}
+.form-card.show { display: block; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.form-group label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; display: block; margin-bottom: 6px; }
+.form-group input, .form-group select {
+  width: 100%; padding: 10px 14px;
+  background: var(--dark); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px;
+}
+.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--lime); }
+
+.righe-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.riga-item {
+  display: grid; grid-template-columns: 2fr 1fr 80px 80px 32px;
+  gap: 8px; align-items: center; margin-bottom: 8px;
+}
+.riga-item input, .riga-item select {
+  padding: 8px 10px; background: var(--dark); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 13px; width: 100%;
+}
+.btn-del { background: none; border: none; color: var(--red); cursor: pointer; font-size: 16px; }
+.btn-add {
+  width: 100%; padding: 8px; background: transparent;
+  border: 1px dashed var(--border); border-radius: 8px;
+  color: var(--muted); font-size: 13px; cursor: pointer; margin: 8px 0 16px;
+}
+.btn-add:hover { border-color: var(--lime); color: var(--lime); }
+
+.btn-conferma {
+  width: 100%; padding: 16px; background: var(--lime); color: var(--dark);
+  border: none; border-radius: 10px; font-size: 15px; font-weight: 800;
+  cursor: pointer; transition: all .15s;
+}
+.btn-conferma:hover { background: #c5e05a; }
+.btn-conferma:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+.success-box {
+  background: rgba(167,200,75,.1); border: 1px solid var(--lime);
+  border-radius: 12px; padding: 24px; text-align: center; display: none;
+}
+.success-box.show { display: block; }
+.success-icon { font-size: 48px; margin-bottom: 12px; }
+.success-title { font-size: 18px; font-weight: 700; color: var(--lime); }
+.success-sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.btn-nuovo { margin-top: 16px; padding: 12px 24px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<!-- PIN -->
+<div id="pin-screen">
+  <div class="pin-logo">GREED</div>
+  <div class="pin-sub">Carico DDT — Accesso riservato</div>
+  <div class="pin-dots" id="pin-dots"></div>
+  <div class="pin-grid">
+    <button class="pin-btn" onclick="pp('1')">1</button>
+    <button class="pin-btn" onclick="pp('2')">2</button>
+    <button class="pin-btn" onclick="pp('3')">3</button>
+    <button class="pin-btn" onclick="pp('4')">4</button>
+    <button class="pin-btn" onclick="pp('5')">5</button>
+    <button class="pin-btn" onclick="pp('6')">6</button>
+    <button class="pin-btn" onclick="pp('7')">7</button>
+    <button class="pin-btn" onclick="pp('8')">8</button>
+    <button class="pin-btn" onclick="pp('9')">9</button>
+    <button class="pin-btn" onclick="pp('0')" style="grid-column:2">0</button>
+    <button class="pin-btn" onclick="pd()" style="font-size:16px;color:var(--muted)">⌫</button>
+  </div>
+  <div class="pin-err" id="pin-err"></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="header">
+    <h1>📦 GREED — Carico DDT</h1>
+    <p>Carica il PDF del DDT — l'AI legge automaticamente fornitore, lotto e prodotti</p>
+  </div>
+
+  <!-- Upload -->
+  <label class="upload-area" id="upload-area">
+    <div class="upload-icon">📄</div>
+    <div class="upload-text">Clicca per caricare il PDF del DDT</div>
+    <div class="upload-sub">Oppure trascina qui il file PDF o l'immagine</div>
+    <input type="file" id="file-input" accept=".pdf,image/*" style="display:none" onchange="elabora(this)">
+  </label>
+
+  <!-- Status AI -->
+  <div class="status-box" id="status-box">
+    <span class="spinner">⏳</span> <span id="status-text">Lettura DDT con AI...</span>
+  </div>
+
+  <!-- Form dati -->
+  <div class="form-card" id="form-card">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Fornitore</label>
+        <input type="text" id="f-fornitore" placeholder="Nome fornitore">
+      </div>
+      <div class="form-group">
+        <label>Data DDT</label>
+        <input type="date" id="f-data">
+      </div>
+      <div class="form-group">
+        <label>N° DDT</label>
+        <input type="text" id="f-numero" placeholder="Es. DDT-2026-001">
+      </div>
+      <div class="form-group">
+        <label>N° Lotto</label>
+        <input type="text" id="f-lotto" placeholder="Lotto fornitore">
+      </div>
+    </div>
+
+    <div class="righe-title">Prodotti</div>
+    <div id="righe-container"></div>
+    <button class="btn-add" onclick="addRiga()">+ Aggiungi prodotto</button>
+
+    <button class="btn-conferma" id="btn-conferma" onclick="conferma()">
+      ✅ Conferma carico in magazzino
+    </button>
+  </div>
+
+  <!-- Successo -->
+  <div class="success-box" id="success-box">
+    <div class="success-icon">🎉</div>
+    <div class="success-title">DDT caricato con successo!</div>
+    <div class="success-sub" id="success-sub"></div>
+    <button class="btn-nuovo" onclick="nuovoDDT()">📄 Carica altro DDT</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, getDoc, collection }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
+const app = initializeApp(FB, 'ddt-loader');
+const db  = getFirestore(app);
+
+// ── PIN ──────────────────────────────────────────────────
+const PIN = '0044';
+let entered = '';
+
+function renderDots() {
+  document.getElementById('pin-dots').innerHTML =
+    Array(4).fill(0).map((_,i) =>
+      `<div class="pin-dot ${i < entered.length ? 'filled' : ''}"></div>`
+    ).join('');
+}
+renderDots();
+
+if(sessionStorage.getItem('greed_ddt_auth') === 'ok') {
+  document.getElementById('pin-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
+window.pp = d => {
+  if(entered.length >= 4) return;
+  entered += d; renderDots();
+  if(entered.length === 4) {
+    if(entered === PIN) {
+      sessionStorage.setItem('greed_ddt_auth','ok');
+      document.getElementById('pin-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+    } else {
+      document.getElementById('pin-err').textContent = 'PIN non corretto';
+      setTimeout(() => { entered = ''; renderDots(); document.getElementById('pin-err').textContent = ''; }, 700);
+    }
+  }
+};
+window.pd = () => { entered = entered.slice(0,-1); renderDots(); };
+
+// ── RIGHE ────────────────────────────────────────────────
+window._righe = [];
+
+function renderRighe() {
+  document.getElementById('righe-container').innerHTML =
+    window._righe.map((r, i) => `
+    <div class="riga-item">
+      <input value="${r.nome||''}" placeholder="Ingrediente" oninput="window._righe[${i}].nome=this.value">
+      <input type="number" value="${r.quantita||''}" placeholder="Qtà" oninput="window._righe[${i}].quantita=+this.value">
+      <select onchange="window._righe[${i}].unita=this.value">
+        <option ${r.unita==='kg'?'selected':''}>kg</option>
+        <option ${r.unita==='L'?'selected':''}>L</option>
+        <option ${r.unita==='pz'?'selected':''}>pz</option>
+      </select>
+      <input type="number" value="${r.prezzo||''}" placeholder="€/kg" oninput="window._righe[${i}].prezzo=+this.value">
+      <button class="btn-del" onclick="window._righe.splice(${i},1);renderRighe()">✕</button>
+    </div>`).join('');
+}
+
+window.addRiga = () => {
+  window._righe.push({ nome:'', quantita:0, unita:'kg', prezzo:0 });
+  renderRighe();
+};
+
+// ── ELABORA PDF ──────────────────────────────────────────
+window.elabora = async function(input) {
+  const file = input.files[0];
+  if(!file) return;
+
+  document.getElementById('status-box').classList.add('show');
+  document.getElementById('status-text').textContent = 'Lettura DDT con AI...';
+  document.getElementById('form-card').classList.remove('show');
+
+  try {
+    const base64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = e => res(e.target.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    const isPdf = file.type === 'application/pdf';
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: isPdf ? 'document' : 'image',
+              source: { type:'base64', media_type: file.type, data: base64 }
+            },
+            {
+              type: 'text',
+              text: 'Sei un assistente HACCP per una gelateria italiana. Leggi questo DDT (documento di trasporto) ed estrai in JSON SOLO questo formato esatto: {"fornitore":"","data":"YYYY-MM-DD","numero":"","lotto":"","prodotti":[{"nome":"","quantita":0,"unita":"kg","prezzo":0}]}. Rispondi SOLO con il JSON puro, niente testo aggiuntivo, niente markdown.'
+            }
+          ]
+        }]
+      })
+    });
+
+    const data = await resp.json();
+    const text = data.content?.[0]?.text || '';
+    const clean = text.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+
+    document.getElementById('f-fornitore').value = parsed.fornitore || '';
+    document.getElementById('f-data').value = parsed.data || new Date().toISOString().split('T')[0];
+    document.getElementById('f-numero').value = parsed.numero || '';
+    document.getElementById('f-lotto').value = parsed.lotto || '';
+    window._righe = parsed.prodotti || [];
+    renderRighe();
+
+    document.getElementById('status-box').classList.remove('show');
+    document.getElementById('form-card').classList.add('show');
+
+  } catch(e) {
+    document.getElementById('status-text').textContent = '⚠️ Errore AI — compila manualmente i campi';
+    setTimeout(() => document.getElementById('status-box').classList.remove('show'), 2000);
+    document.getElementById('f-data').value = new Date().toISOString().split('T')[0];
+    window._righe = [{ nome:'', quantita:0, unita:'kg', prezzo:0 }];
+    renderRighe();
+    document.getElementById('form-card').classList.add('show');
+  }
+};
+
+// ── CONFERMA ─────────────────────────────────────────────
+window.conferma = async function() {
+  const fornitore = document.getElementById('f-fornitore').value.trim();
+  const data      = document.getElementById('f-data').value;
+  const numero    = document.getElementById('f-numero').value.trim();
+  const lotto     = document.getElementById('f-lotto').value.trim();
+  const righe     = window._righe.filter(r => r.nome && r.quantita > 0);
+
+  if(!fornitore) { alert('Inserisci il fornitore'); return; }
+  if(!righe.length) { alert('Inserisci almeno un prodotto con quantità'); return; }
+
+  const btn = document.getElementById('btn-conferma');
+  btn.disabled = true;
+  btn.textContent = '⏳ Salvataggio...';
+
+  try {
+    // 1. Registro DDT in ricevimentoMerci
+    const ddtId = `ddt_${data}_${Date.now()}`;
+    await setDoc(doc(db, 'ricevimentoMerci', ddtId), {
+      tipo:'DDT', data, numero, fornitore, lotto,
+      prodotti: righe, _ts: Date.now(), _fonte: 'ddt-pdf-online'
+    });
+
+    // 2. Aggiorna magazzino + storico acquisti
+    for(const r of righe) {
+      const key = r.nome.replace(/[^a-zA-Z0-9_-]/g,'_').substring(0,100);
+      const grams = Math.round(r.quantita * 1000);
+
+      // Leggi giacenza attuale
+      const existing = await getDoc(doc(db, 'magazzino', key));
+      const gAttuali = existing.exists() ? (existing.data().g || 0) : 0;
+
+      // Aggiorna magazzino
+      await setDoc(doc(db, 'magazzino', key), {
+        nome: r.nome, g: gAttuali + grams, unit: r.unita,
+        fornitore, ultimoLotto: lotto, ultimaData: data,
+        ultimoPrezzo: r.prezzo, _ts: Date.now(), _sync: 'ddt-pdf'
+      }, { merge: true });
+
+      // Storico acquisti per tracciabilità
+      const storicoId = `${key}_${data}_${Date.now()}`;
+      await setDoc(doc(db, 'acquistiStorico', storicoId), {
+        ingrediente: r.nome, fornitore, lotto, data, numero,
+        quantita: r.quantita, unita: r.unita, prezzo: r.prezzo,
+        _ts: Date.now()
+      });
+    }
+
+    document.getElementById('form-card').classList.remove('show');
+    document.getElementById('success-sub').textContent =
+      `${righe.length} prodotti caricati da ${fornitore} — Lotto ${lotto||'—'}`;
+    document.getElementById('success-box').classList.add('show');
+
+  } catch(e) {
+    alert('Errore: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '✅ Conferma carico in magazzino';
+  }
+};
+
+window.nuovoDDT = function() {
+  document.getElementById('success-box').classList.remove('show');
+  document.getElementById('form-card').classList.remove('show');
+  document.getElementById('file-input').value = '';
+  window._righe = [];
+  renderRighe();
+  document.getElementById('f-fornitore').value = '';
+  document.getElementById('f-data').value = '';
+  document.getElementById('f-numero').value = '';
+  document.getElementById('f-lotto').value = '';
+  const btn = document.getElementById('btn-conferma');
+  btn.disabled = false;
+  btn.textContent = '✅ Conferma carico in magazzino';
+};
+</script>
+</body>
+</html>
