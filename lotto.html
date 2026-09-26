@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GREED — Carta d'Identità Prodotto</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f0; min-height: 100vh; padding: 16px; }
+  .card { max-width: 480px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,.10); }
+  .header { background: #1a2e1a; color: white; padding: 20px; }
+  .logo { font-size: 28px; font-weight: 900; letter-spacing: 4px; color: #a7c84b; }
+  .logo-sub { font-size: 11px; color: rgba(255,255,255,.5); margin-top: 2px; }
+  .gusto { font-size: 22px; font-weight: 700; color: white; margin-top: 12px; }
+  .lotto-badge { display: inline-block; background: rgba(167,200,75,.2); border: 1px solid #a7c84b; color: #a7c84b; font-family: monospace; font-size: 12px; padding: 3px 8px; border-radius: 6px; margin-top: 6px; }
+  .body { padding: 16px; }
+  .section { margin-bottom: 16px; }
+  .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 8px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .info-box { background: #f7f9f4; border-radius: 8px; padding: 10px; }
+  .info-label { font-size: 10px; color: #888; }
+  .info-value { font-size: 13px; font-weight: 600; color: #1a2e1a; margin-top: 2px; }
+  .ing-row { border: 1px solid #e8ede8; border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+  .ing-nome { font-size: 14px; font-weight: 600; color: #1a2e1a; }
+  .ing-qty { font-size: 11px; color: #888; margin-top: 1px; }
+  .ing-fornitore { font-size: 12px; color: #444; margin-top: 6px; }
+  .ing-lotto { font-size: 11px; color: #c8962b; font-family: monospace; }
+  .allergeni { background: #fff8e6; border: 1px solid #f0c040; border-radius: 10px; padding: 12px; }
+  .allergeni-title { font-size: 11px; font-weight: 700; color: #c8962b; margin-bottom: 4px; }
+  .allergeni-list { font-size: 13px; color: #444; }
+  .footer { background: #f7f9f4; padding: 12px 16px; font-size: 10px; color: #aaa; text-align: center; border-top: 1px solid #eee; }
+  .err { padding: 40px 20px; text-align: center; color: #888; }
+  .loading { padding: 40px 20px; text-align: center; color: #aaa; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="header">
+    <div class="logo">GREED</div>
+    <div class="logo-sub">Gelateria Naturale • Piazza Roma 16, Frascati (RM)</div>
+    <div class="gusto" id="titolo">Carico...</div>
+    <div id="lotto-badge"></div>
+  </div>
+  <div class="body" id="body">
+    <div class="loading">⏳ Carico dati lotto...</div>
+  </div>
+  <div class="footer" id="footer"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, getDocs, collection } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
+const db = getFirestore(initializeApp(FB));
+
+function norm(s) {
+  return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,' ').replace(/\s+/g,' ').trim();
+}
+
+async function main() {
+  const params = new URLSearchParams(location.search);
+  const lottoId = params.get('id');
+
+  if (!lottoId) {
+    document.getElementById('titolo').textContent = 'QR non valido';
+    document.getElementById('body').innerHTML = '<div class="err">⚠️ Nessun lotto specificato nel QR code.</div>';
+    return;
+  }
+
+  try {
+    // 1. Carica produzione dal registro
+    const snapReg = await getDocs(collection(db, 'registro'));
+    let produzione = null;
+    snapReg.forEach(d => { if(d.id === lottoId) produzione = { id: d.id, ...d.data() }; });
+
+    if (!produzione) {
+      document.getElementById('titolo').textContent = 'Lotto non trovato';
+      document.getElementById('body').innerHTML = `<div class="err">⚠️ Il lotto <strong>${lottoId}</strong> non è presente nel registro produzioni.</div>`;
+      return;
+    }
+
+    document.getElementById('titolo').textContent = produzione.gusto || '—';
+    document.getElementById('lotto-badge').innerHTML = `<span class="lotto-badge">Lotto: ${produzione.id}</span>`;
+
+    // 2. Carica ricetta
+    const snapRic = await getDocs(collection(db, 'ricette'));
+    let ricetta = null;
+    snapRic.forEach(d => {
+      const r = d.data();
+      if(norm(r.nome || d.id) === norm(produzione.gusto)) ricetta = r;
+    });
+
+    // 3. Carica acquistiStorico
+    const snapAcq = await getDocs(collection(db, 'acquistiStorico'));
+    const acquistiMap = {};
+    snapAcq.forEach(d => {
+      const a = d.data();
+      if(!a.ingrediente) return;
+      if(produzione.data && a.data && a.data > produzione.data) return;
+      const k = norm(a.ingrediente);
+      if(!acquistiMap[k]) acquistiMap[k] = [];
+      acquistiMap[k].push(a);
+    });
+    Object.keys(acquistiMap).forEach(k => acquistiMap[k].sort((a,b)=>(b.data||'').localeCompare(a.data||'')));
+
+    // 4. Carica magazzino
+    const snapMag = await getDocs(collection(db, 'magazzino'));
+    const magMap = {};
+    snapMag.forEach(d => { const m = d.data(); if(m.nome) magMap[norm(m.nome)] = m; });
+
+    // 5. Render
+    const ingredienti = ricetta?.ingredienti || [];
+    const scadenza = produzione.scadenza || produzione.scad || '—';
+    const allergeni = produzione.allergeni || ricetta?.allergeni || '—';
+
+    let html = '';
+
+    // Info produzione
+    html += `<div class="section">
+      <div class="section-title">📋 Dati produzione</div>
+      <div class="info-grid">
+        <div class="info-box"><div class="info-label">Data produzione</div><div class="info-value">${produzione.data||'—'}</div></div>
+        <div class="info-box"><div class="info-label">Scadenza</div><div class="info-value">${scadenza}</div></div>
+        <div class="info-box"><div class="info-label">Kg prodotti</div><div class="info-value">${(produzione.qty||0)} kg</div></div>
+        <div class="info-box"><div class="info-label">Operatore</div><div class="info-value">${produzione.op||'—'}</div></div>
+      </div>
+    </div>`;
+
+    // Ingredienti
+    if(ingredienti.length > 0) {
+      html += `<div class="section"><div class="section-title">🧂 Materie prime (dalla più abbondante)</div>`;
+      const sorted = [...ingredienti].sort((a,b) => (b.d||b.q||b.quantita||0) - (a.d||a.q||a.quantita||0));
+      sorted.forEach(ing => {
+        const nomeIng = ing.nome || '';
+        const k = norm(nomeIng);
+        const acq = acquistiMap[k]?.find(x=>x.lotto) || acquistiMap[k]?.[0];
+        const mag = magMap[k];
+        const fornitore = acq?.fornitore || mag?.fornitore || null;
+        const lotto = acq?.lotto || mag?.ultimoLotto || null;
+        const qty = (ing.d||ing.q||ing.quantita||0);
+        const qtyStr = typeof qty === 'number' ? qty.toFixed(1) + ' g/kg' : qty + ' g/kg';
+        html += `<div class="ing-row">
+          <div class="ing-nome">${nomeIng}</div>
+          <div class="ing-qty">${qtyStr}</div>
+          ${fornitore ? `<div class="ing-fornitore">🏭 ${fornitore}</div>` : ''}
+          ${lotto ? `<div class="ing-lotto">Lotto fornitore: ${lotto}</div>` : ''}
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    // Allergeni
+    if(allergeni && allergeni !== '—') {
+      html += `<div class="section">
+        <div class="allergeni">
+          <div class="allergeni-title">⚠️ ALLERGENI</div>
+          <div class="allergeni-list">${allergeni}</div>
+        </div>
+      </div>`;
+    }
+
+    document.getElementById('body').innerHTML = html;
+    document.getElementById('footer').textContent =
+      `GREED Srl • Via Fontana dell'Oste 142, 00030 Colleferro (RM) • P.IVA 16745501003 • AIC senza glutine dal 2004 • Generato: ${new Date().toLocaleString('it-IT')}`;
+
+  } catch(e) {
+    document.getElementById('body').innerHTML = `<div class="err">Errore: ${e.message}</div>`;
+  }
+}
+
+main();
+</script>
+</body>
+</html>
