@@ -25,6 +25,8 @@
   .ing-qty { font-size: 11px; color: #888; margin-top: 1px; }
   .ing-fornitore { font-size: 12px; color: #444; margin-top: 6px; }
   .ing-lotto { font-size: 11px; color: #c8962b; font-family: monospace; }
+  .ing-lotto-dubbio { font-size: 11px; color: #b06a00; margin-top: 3px; }
+  .ing-lotto-dubbio span { font-family: monospace; color: #999; }
   .allergeni { background: #fff8e6; border: 1px solid #f0c040; border-radius: 10px; padding: 12px; }
   .allergeni-title { font-size: 11px; font-weight: 700; color: #c8962b; margin-bottom: 4px; }
   .allergeni-list { font-size: 13px; color: #444; }
@@ -110,7 +112,8 @@ async function main() {
     snapMag.forEach(d => { const m = d.data(); if(m.nome) magMap[norm(m.nome)] = m; });
 
     // 5. Render
-    const ingredienti = ricetta?.ingredienti || [];
+    // Prima la ricetta salvata CON la produzione (quella usata davvero quel giorno)
+    const ingredienti = produzione.ricetta?.ingredienti?.length ? produzione.ricetta.ingredienti : (ricetta?.ingredienti || []);
     const scadenza = produzione.scadenza || produzione.scad || '—';
     const allergeni = produzione.allergeni || ricetta?.allergeni || '—';
 
@@ -144,7 +147,8 @@ async function main() {
           <div class="ing-nome">${nomeIng}</div>
           <div class="ing-qty">${qtyStr}</div>
           ${fornitore ? `<div class="ing-fornitore">🏭 ${fornitore}</div>` : ''}
-          ${lotto ? `<div class="ing-lotto">Lotto fornitore: ${lotto}</div>` : ''}
+          ${lotto && !/[,;]/.test(lotto) ? `<div class="ing-lotto">Lotto fornitore: ${lotto}</div>` : ''}
+          ${lotto && /[,;]/.test(lotto) ? `<div class="ing-lotto-dubbio">⚠️ Lotto da verificare — la bolla riportava più lotti:<br><span>${lotto}</span></div>` : ''}
         </div>`;
       });
       html += '</div>';
