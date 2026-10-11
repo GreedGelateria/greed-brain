@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GREED — Inventario magazzino</title>
+<style>
+  :root { --bg:#0f1410; --card:#18201a; --border:#2a352c; --text:#e8efe5; --muted:#8fa08f; --lime:#a8c94a; --amber:#e0a030; --red:#e05a48; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family: system-ui, -apple-system, sans-serif; font-size:15px; }
+  header { padding:16px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:5; }
+  h1 { margin:0 0 4px; font-size:20px; color:var(--lime); }
+  .sub { color:var(--muted); font-size:13px; }
+  main { padding:16px; max-width:900px; margin:0 auto; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:16px; }
+  .card h2 { margin:0 0 6px; font-size:16px; }
+  input, select { background:#0b0f0c; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-size:15px; }
+  input:focus { outline:2px solid var(--lime); }
+  #cerca { width:100%; font-size:17px; padding:14px; }
+  .riga { display:grid; grid-template-columns: 1fr 110px 120px; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); }
+  .riga.trovata { background:rgba(168,201,74,.12); border-radius:8px; }
+  .nome { font-weight:600; }
+  .attuale { color:var(--muted); font-size:12px; }
+  .contato input { width:100%; }
+  .contato input.fatto { border-color:var(--lime); }
+  .voce { display:grid; grid-template-columns: 1fr 1fr; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); }
+  .btn { background:var(--lime); color:#111; border:none; border-radius:10px; padding:14px 18px; font-size:16px; font-weight:700; width:100%; cursor:pointer; }
+  .btn:disabled { opacity:.5; }
+  .nota { font-size:12px; color:var(--muted); }
+  .avviso { background:rgba(224,160,48,.12); border:1px solid var(--amber); border-radius:8px; padding:10px; font-size:13px; margin:8px 0; }
+  @media (max-width:600px){ .riga { grid-template-columns: 1fr 100px; } .riga .attuale-col { display:none; } .voce { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>📦 Inventario magazzino</h1>
+  <div class="sub" id="stato">Caricamento…</div>
+</header>
+<main>
+  <div class="card">
+    <h2>1. Conta</h2>
+    <div class="nota">Scrivi quanti <b>kg</b> hai di ogni ingrediente. Puoi cercarlo scrivendo il nome oppure passando il lettore sul codice a barre della confezione.</div>
+    <div style="margin:10px 0"><input id="cerca" placeholder="🔍 Cerca o scansiona…" autocomplete="off"></div>
+    <div id="lista"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. Voci da sistemare</h2>
+    <div class="nota">Queste voci del magazzino non sono ingredienti delle ricette (di solito sono nomi del fornitore). Scegli a quale ingrediente appartengono: verranno unite e, da qui in poi, riconosciute in automatico.</div>
+    <div id="voci"></div>
+  </div>
+
+  <div class="card">
+    <label style="display:flex;gap:8px;align-items:center;font-size:14px">
+      <input type="checkbox" id="azzera"> Metti a zero gli ingredienti che non ho contato
+    </label>
+    <div class="nota" style="margin:6px 0 12px">Se non lo spunti, gli ingredienti non contati restano come sono.</div>
+    <button class="btn" id="salva" disabled>✅ Salva inventario</button>
+  </div>
+</main>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, getDocs, collection, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const MAGC = {
+  norm(s){ return String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]+/g,' ').trim(); },
+  idDoc(nome){ return String(nome).replace(/[^a-zA-Z0-9_-]/g,'_').substring(0,100); },
+  chiaveDesc(d){ return 'D_' + MAGC.norm(d).replace(/ /g,'_').slice(0,120); },
+};
+const app = initializeApp({ apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" });
+const db = getFirestore(app);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const kg = g => ((g||0)/1000).toLocaleString('it-IT', { maximumFractionDigits: 2 });
+
+let ufficiali = [], voci = [], perEan = {}, magPerNome = {};
+
+async function carica(){
+  const [sRic, sMag, sAbb] = await Promise.all([ getDocs(collection(db,'ricette')), getDocs(collection(db,'magazzino')), getDocs(collection(db,'abbinamenti')) ]);
+  const uff = new Map();
+  sRic.forEach(d => (d.data().ingredienti || []).forEach(i => { const n = String(i.nome || i.n || i.ingrediente || '').trim(); if (n && !uff.has(n.toLowerCase())) uff.set(n.toLowerCase(), n); }));
+  sMag.forEach(d => { const x = d.data(); if (x.nome) magPerNome[x.nome.toLowerCase()] = { id: d.id, ...x }; });
+  sAbb.forEach(d => { const x = d.data(); if (d.id.startsWith('EAN_') && x.ingrediente) perEan[d.id.slice(4)] = x.ingrediente; });
+  ufficiali = [...uff.values()].sort((a,b) => a.localeCompare(b,'it'));
+  voci = Object.values(magPerNome).filter(x => !uff.has(x.nome.toLowerCase())).sort((a,b) => a.nome.localeCompare(b.nome,'it'));
+  disegna();
+  document.getElementById('stato').textContent = `${ufficiali.length} ingredienti delle ricette · ${voci.length} voci da sistemare`;
+  document.getElementById('salva').disabled = false;
+  document.getElementById('cerca').focus();
+}
+
+function disegna(){
+  document.getElementById('lista').innerHTML = ufficiali.map((n, i) => {
+    const m = magPerNome[n.toLowerCase()];
+    return `<div class="riga" data-nome="${esc(n.toLowerCase())}" id="r${i}">
+      <div><div class="nome">${esc(n)}</div><div class="attuale">in archivio: ${kg(m?.g)} kg</div></div>
+      <div class="attuale-col attuale" style="text-align:right">${kg(m?.g)} kg</div>
+      <div class="contato"><input type="number" inputmode="decimal" step="0.01" min="0" placeholder="kg contati" data-i="${i}"></div>
+    </div>`;
+  }).join('') || '<div class="nota">Nessuna ricetta trovata.</div>';
+  document.querySelectorAll('.contato input').forEach(inp => inp.addEventListener('input', () => inp.classList.toggle('fatto', inp.value !== '')));
+  const opz = ufficiali.map(n => `<option value="${esc(n)}">`).join('');
+  document.getElementById('voci').innerHTML = (voci.length ? `<datalist id="uff">${opz}</datalist>` : '<div class="nota">Nessuna voce da sistemare 👍</div>') + voci.map((v, i) => `
+    <div class="voce">
+      <div><div class="nome">${esc(v.nome)}</div><div class="attuale">${kg(v.g)} kg in archivio${v.fornitore ? ' · ' + esc(v.fornitore) : ''}</div></div>
+      <div><input list="uff" data-v="${i}" placeholder="Unisci a… (vuoto = elimina)" style="width:100%"></div>
+    </div>`).join('');
+}
+
+// Ricerca per nome o codice a barre (il lettore scrive le cifre e preme Invio)
+const cerca = document.getElementById('cerca');
+function trova(q){
+  q = String(q||'').trim();
+  document.querySelectorAll('.riga').forEach(r => r.classList.remove('trovata'));
+  if (!q) { document.querySelectorAll('.riga').forEach(r => r.style.display = ''); return null; }
+  let target = /^\d{8,14}$/.test(q) ? perEan[q] : null;
+  if (/^\d{8,14}$/.test(q) && !target) { document.getElementById('stato').textContent = `Codice ${q} non ancora associato: cerca l'ingrediente per nome.`; return null; }
+  const qq = (target || q).toLowerCase();
+  let primo = null;
+  document.querySelectorAll('.riga').forEach(r => {
+    const ok = target ? r.dataset.nome === qq : r.dataset.nome.includes(qq);
+    r.style.display = ok ? '' : 'none';
+    if (ok && !primo) primo = r;
+  });
+  return primo;
+}
+cerca.addEventListener('input', () => trova(cerca.value));
+cerca.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const r = trova(cerca.value);
+  if (r) { r.classList.add('trovata'); const inp = r.querySelector('input'); inp.focus(); inp.select(); }
+});
+// Dopo aver scritto i kg, Invio torna alla ricerca per la confezione successiva
+document.getElementById('lista').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.matches('.contato input')) { cerca.value = ''; trova(''); cerca.focus(); }
+});
+
+document.getElementById('salva').addEventListener('click', async () => {
+  const contati = [];
+  document.querySelectorAll('.contato input').forEach(inp => { if (inp.value !== '') contati.push({ nome: ufficiali[+inp.dataset.i], g: Math.round(parseFloat(inp.value.replace(',','.')) * 1000) || 0 }); });
+  const azzera = document.getElementById('azzera').checked;
+  const nonContati = ufficiali.filter(n => !contati.some(c => c.nome === n));
+  const unioni = [], eliminazioni = [];
+  document.querySelectorAll('#voci input[data-v]').forEach(inp => {
+    const v = voci[+inp.dataset.v]; const dest = inp.value.trim();
+    if (dest) unioni.push({ v, dest }); else eliminazioni.push(v);
+  });
+  if (!contati.length && !confirm('Non hai contato nessun ingrediente. Vuoi salvare solo la sistemazione delle voci?')) return;
+  if (!confirm(`Riepilogo inventario:\n\n• ${contati.length} ingredienti contati\n• ${nonContati.length} non contati → ${azzera ? 'messi a ZERO' : 'restano come sono'}\n• ${unioni.length} voci unite agli ingredienti\n• ${eliminazioni.length} voci eliminate\n\nDa oggi le fatture e i DDT caricheranno a partire da qui. Confermi?`)) return;
+
+  const btn = document.getElementById('salva'); btn.disabled = true; btn.textContent = 'Salvataggio…';
+  const oggi = new Date().toISOString().slice(0,10);
+  try {
+    for (const c of contati)
+      await setDoc(doc(db,'magazzino', magPerNome[c.nome.toLowerCase()]?.id || MAGC.idDoc(c.nome)), { nome: c.nome, g: c.g, _inventario: oggi, _ts: Date.now() }, { merge: true });
+    if (azzera) for (const n of nonContati)
+      await setDoc(doc(db,'magazzino', magPerNome[n.toLowerCase()]?.id || MAGC.idDoc(n)), { nome: n, g: 0, _inventario: oggi, _ts: Date.now() }, { merge: true });
+    for (const u of unioni) {
+      // Il nome del fornitore viene ricordato: i prossimi DDT e fatture finiranno sull'ingrediente giusto
+      await setDoc(doc(db,'abbinamenti', MAGC.chiaveDesc(u.v.nome)), { ingrediente: u.dest, descrizione: u.v.nome, fornitore: u.v.fornitore || '', _ts: Date.now() }, { merge: true });
+      await deleteDoc(doc(db,'magazzino', u.v.id));
+    }
+    for (const v of eliminazioni) await deleteDoc(doc(db,'magazzino', v.id));
+    await setDoc(doc(db,'magazzino_impostazioni','generale'), { dataInventario: oggi, _ts: Date.now() }, { merge: true });
+    alert(`✅ Inventario salvato (${oggi}).\n\nApri il gestionale del laboratorio: si aggiornerà da solo alla prossima apertura.`);
+    location.reload();
+  } catch (e) {
+    alert('❌ Errore: ' + e.message + '\n\nNiente panico: puoi ripetere il salvataggio, i valori contati vengono riscritti uguali.');
+    btn.disabled = false; btn.textContent = '✅ Salva inventario';
+  }
+});
+
+carica().catch(e => { document.getElementById('stato').textContent = 'Errore di caricamento: ' + e.message; });
+</script>
+</body>
+</html>
