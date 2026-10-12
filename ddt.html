@@ -240,16 +240,25 @@ const MAGC = {
     return null;
   },
   _g(v, u){ u = u.toUpperCase(); if (u === 'KG' || u === 'LT' || u === 'L' || u.startsWith('LITR')) return Math.round(v*1000); return Math.round(v); },
+  // Unità di misura scritte in tutti i modi ("KG", "Kg", "Chilogrammi", "Pezzi", "LT", "Litri"…)
+  unita(u){
+    u = String(u||'').toUpperCase().replace(/[^A-Z]/g,'');
+    if (!u) return '';
+    if (/^(KG|KGM|KGS|CHILO|CHILI|KILO)/.test(u)) return 'KG';
+    if (['G','GR','GRM','GRAMMO','GRAMMI'].includes(u)) return 'G';
+    if (['L','LT','LTR','LITRO','LITRI'].includes(u)) return 'L';
+    if (['ML','MLT','MILLILITRI'].includes(u)) return 'ML';
+    return 'PZ';   // pezzi, NR, CF, CT, sacchi, secchi, cartoni…
+  },
   // Quantità del documento → grammi. null = serve il peso di un pezzo
   grammi(qty, unita, gPerPezzo){
-    const u = String(unita||'').toUpperCase().replace(/[^A-Z]/g,'');
-    const q = Number(qty) || 0;
-    if (['KG','KGM','KGS','CHILI'].includes(u)) return Math.round(q*1000);
-    if (['G','GR','GRM','GRAMMI'].includes(u)) return Math.round(q);
-    if (['L','LT','LTR','LITRI','LITRO'].includes(u)) return Math.round(q*1000);
-    if (['ML','MLT'].includes(u)) return Math.round(q);
-    return gPerPezzo ? Math.round(q * gPerPezzo) : null;   // PZ, NR, CF, CT, SC, BT…
+    const u = MAGC.unita(unita), q = Number(qty) || 0;
+    if (u === 'KG' || u === 'L') return Math.round(q*1000);
+    if (u === 'G' || u === 'ML') return Math.round(q);
+    return gPerPezzo ? Math.round(q * gPerPezzo) : null;
   },
+  // Numero "essenziale" di un documento: "01/   5025" = "5025", "871/DT" = "871", "010357/311" = "10357"
+  numChiave(s){ const g = String(s||'').match(/\d+/g) || []; const best = g.sort((a,b) => b.replace(/^0+/,'').length - a.replace(/^0+/,'').length)[0] || ''; return best.replace(/^0+(?=\d)/,''); },
 };
 
 const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
@@ -494,16 +503,20 @@ window.conferma = async function() {
     // 0. Questo DDT è già stato caricato, o la sua merce è già entrata con una fattura XML?
     const fornKey = MAGC.fornKey(fornitore), numNorm = MAGC.numNorm(numero);
     const ddtDocId = `DDT_${fornKey}_${numNorm.replace(/\//g,'-') || Date.now()}`;
-    if (numNorm && (await getDoc(doc(db, 'carichi_documenti', ddtDocId))).exists()) {
-      if (!confirm(`⚠️ Il DDT n. ${numero} di ${fornitore} risulta GIÀ CARICATO.\n\nCaricarlo di nuovo raddoppierebbe la merce in magazzino.\n\nOK solo se è davvero un altro documento.`)) {
-        btn.disabled = false; btn.textContent = '✅ Conferma carico in magazzino'; return;
-      }
-    }
+    // DDT già caricato (stesso fornitore, stesso numero): si aggiornano solo lotti e date, mai le quantità
+    const ddtGiaCaricato = !!numNorm && (await getDoc(doc(db, 'carichi_documenti', ddtDocId))).exists();
     let fatturaGia = null;
     if (numNorm) {
-      const sf = await getDocs(query(collection(db, 'carichi_documenti'), where('ddtCitati', 'array-contains', numNorm)));
-      sf.forEach(d => { const x = d.data(); if (x.tipo === 'FATTURA' && x.fornKey === fornKey && x.caricatoMagazzino) fatturaGia = x; });
+      // Fattura XML che cita questo DDT, oppure fattura con lo stesso numero (fattura accompagnatoria).
+      // Confronto sul numero essenziale: "01/5025" = "5025", "871/DT" = "871"
+      const chiave = MAGC.numChiave(numero);
+      const [sf, sc] = await Promise.all([
+        getDocs(query(collection(db, 'carichi_documenti'), where('ddtCitati', 'array-contains', numNorm))),
+        getDocs(query(collection(db, 'carichi_documenti'), where('ddtChiavi', 'array-contains', chiave))),
+      ]);
+      [sf, sc].forEach(s => s.forEach(d => { const x = d.data(); if (x.tipo === 'FATTURA' && x.fornKey === fornKey && x.caricatoMagazzino) fatturaGia = x; }));
     }
+    const soloLotti = !!fatturaGia || ddtGiaCaricato;
 
     // Grammi reali: kg e litri ×1000, pezzi × peso di un pezzo (chiesto una volta sola, poi ricordato)
     for (const r of righe) {
@@ -516,6 +529,12 @@ window.conferma = async function() {
       }
     }
 
+    // Controllo di buon senso: una riga sopra i 1.000 kg è quasi sempre un errore di lettura
+    const sospette = righe.filter(r => r.g > 1000000).map(r => `${r.nome}: ${(r.g/1000).toLocaleString('it-IT')} kg`);
+    if (sospette.length && !soloLotti && !confirm(`⚠️ Quantità molto alte, controlla la bolla:\n\n${sospette.join('\n')}\n\nOK solo se sono giuste.`)) {
+      btn.disabled = false; btn.textContent = '✅ Conferma carico in magazzino'; return;
+    }
+
     // 1. Registro DDT in ricevimentoMerci
     const ddtId = `ddt_${data}_${Date.now()}`;
     await setDoc(doc(db, 'ricevimentoMerci', ddtId), {
@@ -524,7 +543,8 @@ window.conferma = async function() {
     });
 
     // 2. Registro documenti condiviso con GelateriaPro (evita doppioni con le fatture XML)
-    await setDoc(doc(db, 'carichi_documenti', ddtDocId), {
+    //    Un DDT già registrato non viene riscritto: le sue righe sono quelle effettivamente entrate in magazzino
+    if (!ddtGiaCaricato) await setDoc(doc(db, 'carichi_documenti', ddtDocId), {
       tipo: 'DDT', fornitore, fornKey, numero, numNorm, data,
       righe: righe.map(r => ({ ingrediente: r.nome, g: r.g })),
       caricatoMagazzino: !fatturaGia, _ts: Date.now(), _fonte: 'brain-ddt'
@@ -536,7 +556,7 @@ window.conferma = async function() {
       const lottoRiga = lottoDi(r);
       const datiMag = { nome: r.nome, fornitore, ultimoLotto: lottoRiga, ultimaData: data, ultimoPrezzo: r.prezzo, _ts: Date.now(), _sync: 'ddt-pdf' };
       // Se la fattura XML ha già caricato questa merce, il DDT registra solo lotti e date
-      if (!fatturaGia) datiMag.g = increment(r.g);
+      if (!soloLotti) datiMag.g = increment(r.g);
       await setDoc(doc(db, 'magazzino', key), datiMag, { merge: true });
 
       const storicoId = `${key}_${data}_${Date.now()}`;
@@ -552,6 +572,7 @@ window.conferma = async function() {
       }
     }
     if (fatturaGia) alert(`ℹ️ La merce di questo DDT era già entrata in magazzino con la fattura ${fatturaGia.numero}: ho registrato solo lotti e date, senza raddoppiare le quantità.`);
+    else if (ddtGiaCaricato) alert(`ℹ️ Il DDT n. ${numero} era già stato caricato: ho aggiornato solo lotti e date, senza raddoppiare le quantità.`);
 
     document.getElementById('form-card').classList.remove('show');
     document.getElementById('success-sub').textContent =
