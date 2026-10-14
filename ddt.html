@@ -258,6 +258,9 @@ const MAGC = {
     const c = MAGC.canon(nome);
     return (nomiEsistenti||[]).find(x => MAGC.canon(x) === c) || nome;
   },
+  // Uova fresche: in magazzino entra il TUORLO, 18 g per uovo (media tra 17 e 19 g)
+  G_TUORLO_PER_UOVO: 18,
+  sonoUova(desc){ const d = MAGC.norm(desc); return /\bUOV[AO]\b/.test(d) && !/PASTA|POLVERE|ALBUM|PASTORIZZ|LIQUID/.test(d); },
   // Unità di misura scritte in tutti i modi ("KG", "Kg", "Chilogrammi", "Pezzi", "LT", "Litri"…)
   unita(u){
     u = String(u||'').toUpperCase().replace(/[^A-Z]/g,'');
@@ -348,6 +351,7 @@ async function caricaAbbinamenti(){
 // Nome GREED e peso di un pezzo per una riga letta dal DDT
 function applicaAbbinamento(p){
   const desc = p.nomeOriginale || p.nome || '';
+  if (MAGC.sonoUova(desc)) return { ...p, nome: MAGC.nomeMagazzino('Tuorlo', [...(_nomiGreed || []), ..._nomiMagazzino]), gPerPezzo: MAGC.G_TUORLO_PER_UOVO };
   const a = (_abbinamenti || {})[MAGC.chiave({ descrizione: desc })];
   return { ...p,
     nome: a?.ingrediente || nomeUfficiale(p.nome),

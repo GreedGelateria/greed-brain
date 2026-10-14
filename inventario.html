@@ -117,7 +117,9 @@ async function carica(){
   // 2) Un'unica riga per ingrediente: se esiste già in magazzino si usa quel nome
   const magPerCanon = {}; Object.values(magPerNome).forEach(x => magPerCanon[MAGC.canon(x.nome)] = x);
   const perCanon = new Map();
-  [...uff.values()].forEach(n => { const c = MAGC.canon(n); if (!perCanon.has(c)) perCanon.set(c, magPerCanon[c]?.nome || n); });
+  [...uff.values()].forEach(n => { const c = MAGC.canon(n); if (c !== 'acqua' && !perCanon.has(c)) perCanon.set(c, magPerCanon[c]?.nome || n); });
+  // L'acqua è del rubinetto: via dal magazzino
+  for (const x of Object.values(magPerNome)) if (MAGC.canon(x.nome) === 'acqua') { await deleteDoc(doc(db,'magazzino', x.id)); delete magPerNome[x.nome.toLowerCase()]; }
   ufficiali = [...perCanon.values()].sort((a,b) => a.localeCompare(b,'it'));
   voci = Object.values(magPerNome).filter(x => !perCanon.has(MAGC.canon(x.nome))).sort((a,b) => a.nome.localeCompare(b.nome,'it'));
   disegna();
@@ -132,7 +134,7 @@ function disegna(){
     return `<div class="riga" data-nome="${esc(n.toLowerCase())}" id="r${i}">
       <div><div class="nome">${esc(n)}</div><div class="attuale">in archivio: ${kg(m?.g)} kg</div></div>
       <div class="attuale-col attuale" style="text-align:right">${kg(m?.g)} kg</div>
-      <div class="contato"><input type="number" inputmode="decimal" step="0.01" min="0" placeholder="kg contati" data-i="${i}"></div>
+      <div class="contato"><input type="number" inputmode="decimal" step="${MAGC.canon(n) === 'tuorlo' ? '1' : '0.01'}" min="0" placeholder="${MAGC.canon(n) === 'tuorlo' ? 'n° uova' : 'kg contati'}" data-i="${i}" ${MAGC.canon(n) === 'tuorlo' ? 'data-uova="1" title="Scrivi quante uova hai: 18 g di tuorlo per uovo"' : ''}></div>
     </div>`;
   }).join('') || '<div class="nota">Nessuna ricetta trovata.</div>';
   document.querySelectorAll('.contato input').forEach(inp => inp.addEventListener('input', () => inp.classList.toggle('fatto', inp.value !== '')));
@@ -174,7 +176,12 @@ document.getElementById('lista').addEventListener('keydown', e => {
 
 document.getElementById('salva').addEventListener('click', async () => {
   const contati = [];
-  document.querySelectorAll('.contato input').forEach(inp => { if (inp.value !== '') contati.push({ nome: ufficiali[+inp.dataset.i], g: Math.round(parseFloat(inp.value.replace(',','.')) * 1000) || 0 }); });
+  document.querySelectorAll('.contato input').forEach(inp => {
+    if (inp.value === '') return;
+    const v = parseFloat(inp.value.replace(',','.')) || 0;
+    // Tuorlo: si contano le uova (18 g di tuorlo ciascuna)
+    contati.push({ nome: ufficiali[+inp.dataset.i], g: Math.round(inp.dataset.uova ? v * 18 : v * 1000) });
+  });
   const azzera = document.getElementById('azzera').checked;
   const nonContati = ufficiali.filter(n => !contati.some(c => c.nome === n));
   const unioni = [], eliminazioni = [];
@@ -198,7 +205,8 @@ document.getElementById('salva').addEventListener('click', async () => {
       await deleteDoc(doc(db,'magazzino', u.v.id));
     }
     for (const v of eliminazioni) await deleteDoc(doc(db,'magazzino', v.id));
-    await setDoc(doc(db,'magazzino_impostazioni','generale'), { dataInventario: oggi, _ts: Date.now() }, { merge: true });
+    // Orario esatto della conta: il gestionale ignora gli scarichi di produzioni fatte prima (già comprese nella conta)
+    await setDoc(doc(db,'magazzino_impostazioni','generale'), { dataInventario: oggi, tsInventario: Date.now(), _ts: Date.now() }, { merge: true });
     alert(`✅ Inventario salvato (${oggi}).\n\nApri il gestionale del laboratorio: si aggiornerà da solo alla prossima apertura.`);
     location.reload();
   } catch (e) {
