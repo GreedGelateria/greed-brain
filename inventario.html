@@ -67,6 +67,17 @@ const MAGC = {
   norm(s){ return String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]+/g,' ').trim(); },
   idDoc(nome){ return String(nome).replace(/[^a-zA-Z0-9_-]/g,'_').substring(0,100); },
   chiaveDesc(d){ return 'D_' + MAGC.norm(d).replace(/ /g,'_').slice(0,120); },
+  // Stessa regola del gestionale: "LATTE INTERO" = "Latte Intero", "PANNA" = "Panna 35%", "Glucosio 29DE" = "Glucosio"…
+  canon(n){
+    let s=String(n||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    s=s.replace(/\(.*?\)/g,' ').replace(/\bpolv\.?(?=\s|$)/g,'polvere').replace(/\b\d+\s*de\b/g,' ').replace(/\d+([.,]\d+)?\s*%/g,' ').replace(/\bbio\b/g,' ');
+    s=s.replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
+    const SIN=[[/carrub/,'carruba'],[/\bguar\b/,'guar'],[/xantan/,'xantano'],[/proteine (del )?latte|\bmpc\b/,'proteine latte'],
+      [/^glucosio/,'glucosio'],[/^panna/,'panna'],[/^tuorl/,'tuorlo'],[/^pistacchi/,'pistacchio'],[/^nocciol/,'nocciola'],[/^mandorl/,'mandorla'],[/^arachid/,'arachide'],
+      [/latte magro (in )?polvere/,'latte magro polvere'],[/^sale\b/,'sale'],[/^inulina/,'inulina'],[/^destrosio/,'destrosio']];
+    for(const [re,v] of SIN) if(re.test(s)) return v;
+    return s;
+  },
 };
 const app = initializeApp({ apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" });
 const db = getFirestore(app);
@@ -79,10 +90,36 @@ async function carica(){
   const [sRic, sMag, sAbb] = await Promise.all([ getDocs(collection(db,'ricette')), getDocs(collection(db,'magazzino')), getDocs(collection(db,'abbinamenti')) ]);
   const uff = new Map();
   sRic.forEach(d => (d.data().ingredienti || []).forEach(i => { const n = String(i.nome || i.n || i.ingrediente || '').trim(); if (n && !uff.has(n.toLowerCase())) uff.set(n.toLowerCase(), n); }));
-  sMag.forEach(d => { const x = d.data(); if (x.nome) magPerNome[x.nome.toLowerCase()] = { id: d.id, ...x }; });
+  const magDocs = []; sMag.forEach(d => { const x = d.data(); if (x.nome) magDocs.push({ id: d.id, ...x }); });
   sAbb.forEach(d => { const x = d.data(); if (d.id.startsWith('EAN_') && x.ingrediente) perEan[d.id.slice(4)] = x.ingrediente; });
-  ufficiali = [...uff.values()].sort((a,b) => a.localeCompare(b,'it'));
-  voci = Object.values(magPerNome).filter(x => !uff.has(x.nome.toLowerCase())).sort((a,b) => a.nome.localeCompare(b.nome,'it'));
+  // 1) Doppioni in magazzino (stesso ingrediente scritto in modi diversi): uniti in UNA voce sommando le quantità.
+  //    Carichi e scarichi fatti sull'una o sull'altra sono movimenti veri, quindi la somma è la giacenza giusta.
+  const gruppi = {};
+  magDocs.forEach(x => { const c = MAGC.canon(x.nome); (gruppi[c] = gruppi[c] || []).push(x); });
+  let uniti = 0;
+  for (const lista of Object.values(gruppi)) {
+    if (lista.length < 2) continue;
+    const keep = lista.slice().sort((a,b) => String(b._inventario||'').localeCompare(String(a._inventario||'')) || Math.abs(b.g||0) - Math.abs(a.g||0))[0];
+    const totale = Math.round(lista.reduce((s,x) => s + (Number(x.g)||0), 0));
+    await setDoc(doc(db,'magazzino', keep.id), { g: totale, _ts: Date.now() }, { merge: true });
+    keep.g = totale;
+    for (const x of lista) {
+      if (x === keep) continue;
+      await deleteDoc(doc(db,'magazzino', x.id));
+      await setDoc(doc(db,'abbinamenti', MAGC.chiaveDesc(x.nome)), { ingrediente: keep.nome, descrizione: x.nome, _ts: Date.now() }, { merge: true });
+      x._unito = true;
+      uniti++;
+    }
+  }
+  magDocs.filter(x => !x._unito).forEach(x => magPerNome[x.nome.toLowerCase()] = x);
+  if (uniti) alert(`🔗 Uniti ${uniti} doppioni del magazzino (stesso ingrediente scritto in modi diversi, es. "LATTE INTERO" e "Latte Intero"). Le quantità sono state sommate.`);
+
+  // 2) Un'unica riga per ingrediente: se esiste già in magazzino si usa quel nome
+  const magPerCanon = {}; Object.values(magPerNome).forEach(x => magPerCanon[MAGC.canon(x.nome)] = x);
+  const perCanon = new Map();
+  [...uff.values()].forEach(n => { const c = MAGC.canon(n); if (!perCanon.has(c)) perCanon.set(c, magPerCanon[c]?.nome || n); });
+  ufficiali = [...perCanon.values()].sort((a,b) => a.localeCompare(b,'it'));
+  voci = Object.values(magPerNome).filter(x => !perCanon.has(MAGC.canon(x.nome))).sort((a,b) => a.nome.localeCompare(b.nome,'it'));
   disegna();
   document.getElementById('stato').textContent = `${ufficiali.length} ingredienti delle ricette · ${voci.length} voci da sistemare`;
   document.getElementById('salva').disabled = false;

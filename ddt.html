@@ -240,6 +240,24 @@ const MAGC = {
     return null;
   },
   _g(v, u){ u = u.toUpperCase(); if (u === 'KG' || u === 'LT' || u === 'L' || u.startsWith('LITR')) return Math.round(v*1000); return Math.round(v); },
+  // Stesso ingrediente scritto in modi diversi ("LATTE INTERO" = "Latte Intero", "PANNA" = "Panna 35%"…):
+  // identica alla regola del gestionale del laboratorio, così carichi e scarichi finiscono sulla stessa voce
+  canon(n){
+    let s=String(n||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    s=s.replace(/\(.*?\)/g,' ').replace(/\bpolv\.?(?=\s|$)/g,'polvere').replace(/\b\d+\s*de\b/g,' ').replace(/\d+([.,]\d+)?\s*%/g,' ').replace(/\bbio\b/g,' ');
+    s=s.replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
+    const SIN=[[/carrub/,'carruba'],[/\bguar\b/,'guar'],[/xantan/,'xantano'],[/proteine (del )?latte|\bmpc\b/,'proteine latte'],
+      [/^glucosio/,'glucosio'],[/^panna/,'panna'],[/^tuorl/,'tuorlo'],[/^pistacchi/,'pistacchio'],[/^nocciol/,'nocciola'],[/^mandorl/,'mandorla'],[/^arachid/,'arachide'],
+      [/latte magro (in )?polvere/,'latte magro polvere'],[/^sale\b/,'sale'],[/^inulina/,'inulina'],[/^destrosio/,'destrosio']];
+    for(const [re,v] of SIN) if(re.test(s)) return v;
+    return s;
+  },
+  // Nome della voce di magazzino GIÀ esistente per quell'ingrediente (se c'è), altrimenti il nome dato
+  nomeMagazzino(nome, nomiEsistenti){
+    if ((nomiEsistenti||[]).includes(nome)) return nome;
+    const c = MAGC.canon(nome);
+    return (nomiEsistenti||[]).find(x => MAGC.canon(x) === c) || nome;
+  },
   // Unità di misura scritte in tutti i modi ("KG", "Kg", "Chilogrammi", "Pezzi", "LT", "Litri"…)
   unita(u){
     u = String(u||'').toUpperCase().replace(/[^A-Z]/g,'');
@@ -551,10 +569,13 @@ window.conferma = async function() {
     });
 
     // 3. Magazzino + storico acquisti + abbinamenti imparati
+    await nomiIngredienti();
     for(const r of righe) {
-      const key = MAGC.idDoc(r.nome);
+      // Se in magazzino esiste già lo stesso ingrediente scritto diversamente, si carica lì
+      const nomeMag = MAGC.nomeMagazzino(r.nome, _nomiMagazzino);
+      const key = MAGC.idDoc(nomeMag);
       const lottoRiga = lottoDi(r);
-      const datiMag = { nome: r.nome, fornitore, ultimoLotto: lottoRiga, ultimaData: data, ultimoPrezzo: r.prezzo, _ts: Date.now(), _sync: 'ddt-pdf' };
+      const datiMag = { nome: nomeMag, fornitore, ultimoLotto: lottoRiga, ultimaData: data, ultimoPrezzo: r.prezzo, _ts: Date.now(), _sync: 'ddt-pdf' };
       // Se la fattura XML ha già caricato questa merce, il DDT registra solo lotti e date
       if (!soloLotti) datiMag.g = increment(r.g);
       await setDoc(doc(db, 'magazzino', key), datiMag, { merge: true });
