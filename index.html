@@ -44,6 +44,14 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--dark); 
   border-radius: 7px; padding: 6px 12px; font-size: 12px; cursor: pointer;
 }
 .btn-refresh:hover { border-color: var(--lime); color: var(--lime); }
+.btn-contenuti {
+  background: var(--lime); color: #fff; border-radius: 7px; padding: 7px 14px;
+  font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .header { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+  .header-right { flex-wrap: wrap; gap: 10px; }
+}
 
 /* LAYOUT */
 .layout { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; padding: 20px 28px; }
@@ -292,6 +300,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--dark); 
   <div class="header-right">
     <div class="live-badge"><div class="live-dot"></div> LIVE</div>
     <div class="header-time" id="header-time"></div>
+    <a class="btn-contenuti" href="contenuti.html">📣 Contenuti</a>
     <button class="btn-refresh" onclick="loadAll()">↻ Aggiorna</button>
   </div>
 </div>
