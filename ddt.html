@@ -326,12 +326,13 @@ window._righe = [];
 // Usare questi nomi è ciò che collega il carico a magazzino, gestionale e scheda QR.
 let _nomiGreed = null;      // nomi delle RICETTE: gli unici proposti (all'AI e nell'elenco)
 let _nomiMagazzino = [];    // nomi già presenti in magazzino: servono solo a non segnalarli come "nuovi"
+let _idMagazzino = {};      // nome → id del documento Firebase (per non creare doppioni)
 async function nomiIngredienti(){
   if (_nomiGreed) return _nomiGreed;
   const add = (m, n) => { n = String(n || '').trim(); if (n && !m.has(n.toLowerCase())) m.set(n.toLowerCase(), n); };
   const ric = new Map(), mag = new Map();
   try { (await getDocs(collection(db, 'ricette'))).forEach(d => (d.data().ingredienti || []).forEach(i => add(ric, i.nome || i.n || i.ingrediente))); } catch(e) { console.warn('Ricette non lette:', e.message); }
-  try { (await getDocs(collection(db, 'magazzino'))).forEach(d => add(mag, d.data().nome)); } catch(e) { console.warn('Magazzino non letto:', e.message); }
+  try { (await getDocs(collection(db, 'magazzino'))).forEach(d => { add(mag, d.data().nome); if (d.data().nome && !_idMagazzino[d.data().nome]) _idMagazzino[d.data().nome] = d.id; }); } catch(e) { console.warn('Magazzino non letto:', e.message); }
   // Se le ricette non fossero leggibili, si ripiega sul magazzino
   _nomiGreed = [...(ric.size ? ric : mag).values()].sort((a, b) => a.localeCompare(b, 'it'));
   _nomiMagazzino = [...mag.values()];
@@ -577,7 +578,7 @@ window.conferma = async function() {
     for(const r of righe) {
       // Se in magazzino esiste già lo stesso ingrediente scritto diversamente, si carica lì
       const nomeMag = MAGC.nomeMagazzino(r.nome, _nomiMagazzino);
-      const key = MAGC.idDoc(nomeMag);
+      const key = _idMagazzino[nomeMag] || MAGC.idDoc(nomeMag);
       const lottoRiga = lottoDi(r);
       const datiMag = { nome: nomeMag, fornitore, ultimoLotto: lottoRiga, ultimaData: data, ultimoPrezzo: r.prezzo, _ts: Date.now(), _sync: 'ddt-pdf' };
       // Se la fattura XML ha già caricato questa merce, il DDT registra solo lotti e date
