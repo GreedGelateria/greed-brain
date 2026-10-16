@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GREED Contenuti</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<style>
+:root{
+  --bg:#f5f7f3; --panel:#ffffff; --line:#d0dcc8;
+  --coppa:#8cbf3f; --verde:#4a8a20; --verde2:#2f5e13; --testo:#1a2e12; --testo2:#4a6a38; --muted:#6b8060;
+  --ambra:#b87800; --rosso:#c0392b; --blu:#2176ae;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--testo);font-family:'Outfit',system-ui,sans-serif;font-size:16px;-webkit-text-size-adjust:100%}
+body{padding:env(safe-area-inset-top) 0 calc(76px + env(safe-area-inset-bottom))}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--coppa);outline-offset:2px}
+
+header{display:flex;align-items:baseline;justify-content:space-between;padding:18px 18px 8px;max-width:640px;margin:0 auto}
+.marchio{font-weight:800;font-size:22px;letter-spacing:-.5px;color:var(--verde2)}
+.marchio span{font-weight:500;color:var(--muted);font-size:15px;margin-left:6px;letter-spacing:0}
+#utente{font-size:12px;color:var(--muted)}
+
+main{max-width:640px;margin:0 auto;padding:0 14px}
+.vista{display:none}
+.vista.attiva{display:block}
+h2{font-size:20px;font-weight:700;margin:14px 4px 10px}
+.sotto{font-size:14px;color:var(--testo2);margin:-4px 4px 12px;line-height:1.45}
+
+.blocco{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+.blocco h3{font-size:15px;font-weight:600;margin-bottom:10px}
+
+/* scelta tipo */
+.tipi{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tipo{border:1.5px solid var(--line);background:var(--panel);border-radius:12px;padding:12px;text-align:left;cursor:pointer}
+.tipo b{display:block;font-size:15px}
+.tipo small{color:var(--muted);font-size:12.5px;line-height:1.35;display:block;margin-top:2px}
+.tipo[aria-pressed="true"]{border-color:var(--verde);background:#eef6e4}
+.tipo.vetrina{grid-column:1/-1;background:var(--coppa);border-color:var(--coppa);color:var(--testo)}
+.tipo.vetrina small{color:var(--verde2)}
+.tipo.vetrina[aria-pressed="true"]{outline:3px solid var(--verde2);outline-offset:-3px;background:var(--coppa)}
+
+/* file */
+.file{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1.5px dashed var(--line);border-radius:12px;padding:22px;text-align:center;cursor:pointer;color:var(--testo2)}
+.file input{display:none}
+.file b{color:var(--verde2)}
+#anteprima{margin-top:10px;display:none}
+#anteprima img,#anteprima video{width:100%;max-height:420px;object-fit:contain;border-radius:10px;background:#e9efe4}
+.avviso{font-size:13px;color:var(--ambra);margin-top:8px;line-height:1.4}
+.errore{font-size:13px;color:var(--rosso);margin-top:8px;line-height:1.4}
+
+/* gusti */
+.gusti{display:flex;flex-wrap:wrap;gap:6px}
+.gusto{border:1px solid var(--line);background:#fafcf8;border-radius:20px;padding:7px 12px;font-size:14px;cursor:pointer}
+.gusto[aria-pressed="true"]{background:var(--verde);border-color:var(--verde);color:#fff}
+
+textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fafcf8;line-height:1.45;resize:vertical}
+textarea#caption{min-height:190px}
+input[type=datetime-local]{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fafcf8}
+.riga{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.conta{font-size:12px;color:var(--muted);margin-left:auto}
+
+.btn{border:none;border-radius:12px;padding:13px 18px;font-weight:600;font-size:15px;cursor:pointer}
+.btn-pieno{background:var(--verde2);color:#fff;width:100%}
+.btn-pieno:disabled{background:#9db58c;cursor:default}
+.btn-chiaro{background:#eef6e4;color:var(--verde2)}
+.btn-piccolo{padding:8px 12px;font-size:13.5px;border-radius:9px}
+.btn-rosso{background:#fbeaea;color:var(--rosso)}
+
+#barra{height:6px;background:#e3ecdb;border-radius:4px;overflow:hidden;margin-top:10px;display:none}
+#barra div{height:100%;width:0;background:var(--verde);transition:width .2s}
+
+/* vetrina canvas */
+#vetrinaBox canvas{width:100%;max-width:300px;display:block;margin:0 auto;border-radius:12px;box-shadow:0 2px 0 var(--line)}
+
+/* programmati */
+.settimana{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.obiettivo{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.obiettivo .n{font-size:24px;font-weight:700}
+.obiettivo .n small{font-size:14px;color:var(--muted);font-weight:500}
+.obiettivo .l{font-size:13px;color:var(--testo2)}
+.obiettivo.ok .n{color:var(--verde)}
+.giorno{font-size:13.5px;font-weight:600;color:var(--muted);margin:16px 4px 6px}
+.voce{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;display:grid;grid-template-columns:56px 1fr;gap:12px}
+.voce .mini{width:56px;height:70px;border-radius:8px;background:#e9efe4 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:20px}
+.voce .testa{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.voce .ora{font-weight:600}
+.stato{font-size:12px;font-weight:600;padding:3px 9px;border-radius:10px}
+.s-approvato{background:#e8f1fa;color:var(--blu)}
+.s-in_elaborazione{background:#fff4dc;color:var(--ambra)}
+.s-pubblicato{background:#e7f3dc;color:var(--verde)}
+.s-errore{background:#fbeaea;color:var(--rosso)}
+.voce p{font-size:13.5px;color:var(--testo2);margin-top:5px;line-height:1.4;white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.voce .azioni{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.voce a{color:var(--verde2);font-size:13.5px;font-weight:600}
+.vuoto{text-align:center;color:var(--testo2);padding:26px 10px;line-height:1.5}
+
+/* collegamento */
+.statoIg{display:flex;gap:10px;align-items:center;font-size:15px}
+.pallino{width:12px;height:12px;border-radius:50%;background:var(--rosso);flex-shrink:0}
+.pallino.on{background:var(--verde)}
+
+/* nav */
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:env(safe-area-inset-bottom);z-index:10}
+nav button{background:none;border:none;padding:12px 4px 13px;font-size:14px;color:var(--muted);cursor:pointer;font-weight:500}
+nav button[aria-current="page"]{color:var(--verde2);font-weight:700;box-shadow:inset 0 3px 0 var(--coppa)}
+
+#toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--verde2);color:#fff;padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center;z-index:20}
+#toast.su{opacity:1}
+
+#accesso{position:fixed;inset:0;background:#0f1a13;z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;color:#d8ead0}
+#accesso .marchio{color:#a7c84b;font-size:30px}
+#accesso button{background:#a7c84b;color:#0f1a13;border:none;border-radius:12px;padding:14px 26px;font-weight:700;font-size:16px;cursor:pointer}
+#msgAccesso{color:#e07060;font-size:14px;min-height:18px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="accesso" role="dialog" aria-label="Accesso">
+  <div class="marchio">GREED</div>
+  <div>Contenuti social — accedi con l'account GREED</div>
+  <button id="btnAccedi">Accedi con Google</button>
+  <div id="msgAccesso"></div>
+</div>
+
+<header>
+  <div class="marchio">GREED<span>Contenuti</span></div>
+  <div id="utente"></div>
+</header>
+
+<main>
+  <!-- ═══ CREA ═══ -->
+  <section id="v-crea" class="vista attiva" aria-label="Crea">
+    <h2>Nuovo contenuto</h2>
+
+    <div class="blocco">
+      <div class="tipi" role="group" aria-label="Tipo di contenuto">
+        <button class="tipo" data-tipo="reel" aria-pressed="true"><b>Reel</b><small>Video breve: raggiunge chi non ti segue</small></button>
+        <button class="tipo" data-tipo="post" aria-pressed="false"><b>Post</b><small>Foto, ritagliata in automatico 4:5</small></button>
+        <button class="tipo" data-tipo="storia" aria-pressed="false"><b>Storia</b><small>Foto o video, senza testo</small></button>
+        <button class="tipo" data-tipo="vetrina" aria-pressed="false" style="grid-column:auto"><b>Oggi in vetrina</b><small>Storia automatica dai gusti attivi</small></button>
+      </div>
+    </div>
+
+    <!-- media -->
+    <div class="blocco" id="mediaBox">
+      <label class="file" id="fileLabel">
+        <input type="file" id="file" accept="video/*">
+        <b id="fileTitolo">Carica il video</b>
+        <span id="fileSotto">Dalla galleria o dalla fotocamera</span>
+      </label>
+      <div id="anteprima"></div>
+      <div id="mediaMsg"></div>
+    </div>
+
+    <!-- vetrina -->
+    <div class="blocco" id="vetrinaBox" style="display:none">
+      <h3>Storia dei gusti di oggi</h3>
+      <p class="sotto" style="margin:0 0 12px">Si aggiorna con i gusti attivi in Admin Gusti. Se manca un gusto, attivalo lì e ricarica.</p>
+      <canvas id="cv" width="1080" height="1920" aria-label="Anteprima storia Oggi in vetrina"></canvas>
+    </div>
+
+    <!-- gusti -->
+    <div class="blocco" id="gustiBox">
+      <h3>Quali gusti si vedono?</h3>
+      <div class="gusti" id="gusti"><span class="sotto">Caricamento gusti…</span></div>
+    </div>
+
+    <!-- testo -->
+    <div class="blocco" id="testoBox">
+      <h3>Testo</h3>
+      <textarea id="nota" rows="2" placeholder="Nota facoltativa per l'AI: es. edizione limitata fino a domenica, fichi di Labico raccolti ieri"></textarea>
+      <div class="riga" style="margin-top:10px">
+        <button class="btn btn-chiaro" id="btnGenera">Scrivi il testo</button>
+        <span class="conta" id="conta"></span>
+      </div>
+      <textarea id="caption" style="margin-top:10px;display:none" aria-label="Testo del contenuto"></textarea>
+      <div id="testoMsg"></div>
+    </div>
+
+    <!-- quando -->
+    <div class="blocco">
+      <h3>Quando pubblicare</h3>
+      <input type="datetime-local" id="quando">
+      <div id="quandoMsg"></div>
+      <div id="barra"><div></div></div>
+      <button class="btn btn-pieno" id="btnApprova" style="margin-top:12px">Approva e programma</button>
+      <div id="approvaMsg"></div>
+    </div>
+  </section>
+
+  <!-- ═══ PROGRAMMATI ═══ -->
+  <section id="v-programmati" class="vista" aria-label="Programmati">
+    <h2>Questa settimana</h2>
+    <div class="settimana" id="settimana"></div>
+    <div id="lista"></div>
+  </section>
+
+  <!-- ═══ COLLEGAMENTO ═══ -->
+  <section id="v-collega" class="vista" aria-label="Collegamento Instagram">
+    <h2>Collegamento Instagram</h2>
+    <div class="blocco">
+      <div class="statoIg"><span class="pallino" id="igPallino"></span><span id="igStato">Verifica in corso…</span></div>
+      <div id="igErrore" class="errore"></div>
+    </div>
+    <div class="blocco">
+      <h3>Incolla il token</h3>
+      <p class="sotto" style="margin:0 0 10px">Serve una sola volta. Poi si rinnova da solo ogni settimana.</p>
+      <textarea id="token" rows="4" placeholder="Token di accesso Instagram"></textarea>
+      <button class="btn btn-pieno" id="btnCollega" style="margin-top:10px">Collega Instagram</button>
+      <div id="collegaMsg"></div>
+    </div>
+  </section>
+</main>
+
+<nav aria-label="Sezioni">
+  <button data-v="crea" aria-current="page">Crea</button>
+  <button data-v="programmati">Programmati</button>
+  <button data-v="collega">Instagram</button>
+</nav>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ═══ FIREBASE ═══ */
+firebase.initializeApp({
+  apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4",
+  authDomain:"club-greed.firebaseapp.com",
+  projectId:"club-greed",
+  storageBucket:"club-greed.firebasestorage.app",
+  messagingSenderId:"704669833762",
+  appId:"1:704669833762:web:917f4c7b104bc8ad39087b"
+});
+var db = firebase.firestore();
+var storage = firebase.storage();
+var FN = 'https://europe-west3-club-greed.cloudfunctions.net/';
+var EMAIL_AUTORIZZATE = ['gelateriagreed@gmail.com','team.greedfrascati@gmail.com'];
+var OBIETTIVI = {reel:3, post:2, storia:7};
+var NOMI_TIPO = {reel:'Reel', post:'Post', storia:'Storia'};
+
+/* ═══ STATO ═══ */
+var S = { tipo:'reel', file:null, blob:null, mediaTipo:null, durata:0, gusti:[], scelti:[], utente:null, invio:false };
+
+/* ═══ UTILITÀ ═══ */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function toast(t){ var e=$('toast'); e.textContent=t; e.classList.add('su'); clearTimeout(toast._t); toast._t=setTimeout(function(){e.classList.remove('su');},2600); }
+function msg(id, testo, tipo){ $(id).innerHTML = testo ? '<div class="'+(tipo||'errore')+'">'+esc(testo)+'</div>' : ''; }
+function pad(n){ return (n<10?'0':'')+n; }
+function perInput(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes()); }
+function arrotonda5(d){ d=new Date(d); d.setSeconds(0,0); d.setMinutes(Math.ceil(d.getMinutes()/5)*5); return d; }
+
+// Orario proposto: reel e post alle 18:00 (oggi se c'è tempo, altrimenti domani);
+// vetrina alle 12:00 se è presto, altrimenti tra 10 minuti; storia tra 10 minuti.
+function orarioProposto(tipo, ora){
+  ora = ora || new Date();
+  var d = new Date(ora);
+  if(tipo==='reel' || tipo==='post'){
+    d.setHours(18,0,0,0);
+    if(ora.getTime() > d.getTime() - 30*60000) d.setDate(d.getDate()+1);
+    return d;
+  }
+  if(tipo==='vetrina'){
+    d.setHours(12,0,0,0);
+    if(ora.getTime() <= d.getTime() - 15*60000) return d;
+  }
+  return arrotonda5(new Date(ora.getTime()+10*60000));
+}
+
+/* ═══ IMMAGINI ═══ */
+// Calcola il ritaglio centrale per rientrare nei rapporti accettati da Instagram per i post (4:5 – 1.91:1).
+function ritaglioPost(w, h){
+  var r = w/h, sx=0, sy=0, sw=w, sh=h;
+  if(r < 0.8){ sh = Math.round(w/0.8); sy = Math.round((h-sh)/2); }
+  else if(r > 1.91){ sw = Math.round(h*1.91); sx = Math.round((w-sw)/2); }
+  return {sx:sx, sy:sy, sw:sw, sh:sh};
+}
+function caricaImmagine(file){
+  return new Promise(function(ok, ko){
+    var img = new Image(); var u = URL.createObjectURL(file);
+    img.onload = function(){ ok(img); };
+    img.onerror = function(){ URL.revokeObjectURL(u); ko(new Error('Formato immagine non leggibile. Usa una foto JPG o PNG.')); };
+    img.src = u;
+  });
+}
+// Converte in JPEG (unico formato accettato da Instagram per le foto) con il ritaglio giusto.
+function preparaImmagine(file, tipo){
+  return caricaImmagine(file).then(function(img){
+    var w = img.naturalWidth, h = img.naturalHeight;
+    var c = tipo==='post' ? ritaglioPost(w,h) : {sx:0,sy:0,sw:w,sh:h};
+    var maxW = tipo==='post' ? 1440 : 1080, maxH = tipo==='post' ? 1800 : 1920;
+    var k = Math.min(1, maxW/c.sw, maxH/c.sh);
+    var cv = document.createElement('canvas');
+    cv.width = Math.round(c.sw*k); cv.height = Math.round(c.sh*k);
+    var x = cv.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,cv.width,cv.height);
+    x.drawImage(img, c.sx, c.sy, c.sw, c.sh, 0, 0, cv.width, cv.height);
+    return new Promise(function(ok){ cv.toBlob(function(b){ ok({blob:b, ritagliata: c.sh!==h || c.sw!==w}); }, 'image/jpeg', 0.9); });
+  });
+}
+function durataVideo(file){
+  return new Promise(function(ok){
+    var v = document.createElement('video'); v.preload='metadata';
+    v.onloadedmetadata = function(){ ok(v.duration||0); };
+    v.onerror = function(){ ok(0); };
+    v.src = URL.createObjectURL(file);
+  });
+}
+// Regole di Instagram sui file. Restituisce un errore leggibile o null.
+function controllaVideo(tipo, durata, file){
+  if(!/^video\/(mp4|quicktime)$/.test(file.type)) return 'Instagram accetta video MP4 o MOV.';
+  if(file.size > 300*1024*1024) return 'Video troppo pesante (oltre 300 MB). Accorcialo o riduci la qualità.';
+  if(tipo==='reel' && durata && (durata < 3 || durata > 900)) return 'Un reel deve durare tra 3 secondi e 15 minuti.';
+  if(tipo==='storia' && durata > 60) return 'Una storia video può durare al massimo 60 secondi.';
+  return null;
+}
+
+/* ═══ STORIA "OGGI IN VETRINA" ═══ */
+function righeTesto(x, testo, maxW){
+  var parole = testo.split(' '), righe=[], r='';
+  parole.forEach(function(p){ var t = r ? r+' '+p : p; if(x.measureText(t).width > maxW && r){ righe.push(r); r=p; } else r=t; });
+  if(r) righe.push(r); return righe;
+}
+// Impagina i gusti nello spazio disponibile: 1 colonna fino a 10 gusti, poi 2.
+// Sceglie il carattere più grande con cui tutto entra; i nomi lunghi vanno a capo, mai troncati.
+function impaginaGusti(x, gusti, larghezza, altezza){
+  var n = gusti.length, col = n>10 ? 2 : 1, gap = 44;
+  var colW = (larghezza-(col-1)*gap)/col;
+  var testi = gusti.map(function(g){ return { em:(g.e||''), nome:g.n.replace(/\s*★\s*$/,'') + (g.vegan ? '\u00A0🌱' : '') }; });
+  for(var size=64; size>=26; size-=2){
+    x.font = '600 '+size+'px Outfit, sans-serif';
+    var rientro = Math.ceil(x.measureText('🍦 ').width), riga = Math.round(size*1.18), spazio = Math.round(size*0.55);
+    var voci = testi.map(function(t){
+      var righe = righeTesto(x, t.nome, colW-rientro);
+      righe[0] = (t.em ? t.em+' ' : '') + righe[0];
+      return { righe:righe, h: righe.length*riga + spazio };
+    });
+    // distribuisce le voci tra le colonne in ordine, bilanciando l'altezza
+    var tot = voci.reduce(function(s,v){ return s+v.h; },0), limite = tot/col, cx=0, cy=0, maxH=0;
+    voci.forEach(function(v, i){
+      if(col===2 && cx===0 && cy>0 && cy + v.h/2 > limite){ cx = 1; cy = 0; }
+      v.x = cx*(colW+gap); v.y = cy; cy += v.h; if(cy>maxH) maxH=cy;
+    });
+    var troppoLarga = voci.some(function(v){ return v.righe.some(function(r,k){ return x.measureText(r).width > colW - (k?rientro:0) + 1; }); });
+    if(maxH - spazio <= altezza && !troppoLarga) return { size:size, riga:riga, rientro:rientro, voci:voci };
+  }
+  return { size:26, riga:31, rientro:rientro, voci:voci };
+}
+function disegnaVetrina(cv, gusti, data){
+  var x = cv.getContext('2d'), W=cv.width, H=cv.height;
+  x.fillStyle='#8cbf3f'; x.fillRect(0,0,W,H);
+  x.fillStyle='#1a2e12'; x.textBaseline='alphabetic';
+  x.font='800 64px Outfit, sans-serif'; x.fillText('GREED', 90, 180);
+  x.font='500 40px Outfit, sans-serif'; x.fillStyle='#2f5e13';
+  var giorni=['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'];
+  x.fillText(giorni[data.getDay()]+' '+data.getDate(), 90, 236);
+  x.fillStyle='#1a2e12'; x.font='800 118px Outfit, sans-serif';
+  x.fillText('Oggi', 90, 400); x.fillText('in vetrina', 90, 520);
+
+  var top=600, bottom=H-250, n=gusti.length;
+  var lay = impaginaGusti(x, gusti, W-180, bottom-top);
+  x.fillStyle='#1a2e12';
+  lay.voci.forEach(function(v){
+    x.font = '600 '+lay.size+'px Outfit, sans-serif';
+    v.righe.forEach(function(r, k){ x.fillText(r, 90 + v.x + (k ? lay.rientro : 0), top + v.y + lay.size + k*lay.riga); });
+  });
+  if(!n){ x.font='500 44px Outfit, sans-serif'; x.fillStyle='#2f5e13'; righeTesto(x,'Nessun gusto attivo in Admin Gusti.',W-180).forEach(function(l,i){ x.fillText(l,90,top+60+i*56); }); }
+
+  x.fillStyle='#1a2e12'; x.fillRect(0,H-190,W,190);
+  x.fillStyle='#d8ead0'; x.font='600 44px Outfit, sans-serif';
+  x.fillText('Piazza Roma 16, Frascati', 90, H-110);
+  x.font='500 32px Outfit, sans-serif'; x.fillStyle='#a7c84b';
+  x.fillText('100% senza glutine AIC · 🌱 vegan', 90, H-60);
+}
+function aggiornaVetrina(){
+  var attivi = S.gusti.filter(function(g){ return g.a; });
+  var quando = $('quando').value ? new Date($('quando').value) : new Date();
+  disegnaVetrina($('cv'), attivi, quando);
+  var m = '';
+  if(quando.getDay()===1) m = 'Il lunedì la gelateria è chiusa: controlla la data.';
+  msg('quandoMsg', m, 'avviso');
+}
+
+/* ═══ UI CREA ═══ */
+function impostaTipo(t){
+  S.tipo = t;
+  document.querySelectorAll('.tipo').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.tipo===t ? 'true':'false'); });
+  var vet = t==='vetrina';
+  $('mediaBox').style.display = vet ? 'none' : '';
+  $('vetrinaBox').style.display = vet ? '' : 'none';
+  $('gustiBox').style.display = (t==='reel'||t==='post') ? '' : 'none';
+  $('testoBox').style.display = (t==='reel'||t==='post') ? '' : 'none';
+  $('file').accept = t==='reel' ? 'video/*' : t==='post' ? 'image/*' : 'image/*,video/*';
+  $('fileTitolo').textContent = t==='reel' ? 'Carica il video' : t==='post' ? 'Carica la foto' : 'Carica foto o video';
+  resetMedia();
+  $('quando').value = perInput(orarioProposto(t));
+  msg('quandoMsg',''); msg('approvaMsg','');
+  if(vet) aggiornaVetrina();
+}
+function resetMedia(){
+  S.file=null; S.blob=null; S.mediaTipo=null; S.durata=0;
+  $('file').value=''; $('anteprima').style.display='none'; $('anteprima').innerHTML=''; msg('mediaMsg','');
+}
+function sceltaFile(f){
+  resetMedia(); if(!f) return;
+  var isVideo = /^video\//.test(f.type), isImg = /^image\//.test(f.type);
+  if(S.tipo==='reel' && !isVideo) return msg('mediaMsg','Per un reel serve un video.');
+  if(S.tipo==='post' && !isImg) return msg('mediaMsg','Per un post serve una foto.');
+  if(!isVideo && !isImg) return msg('mediaMsg','File non riconosciuto: usa una foto o un video.');
+  var box = $('anteprima');
+  if(isVideo){
+    durataVideo(f).then(function(d){
+      var e = controllaVideo(S.tipo, d, f);
+      if(e) return msg('mediaMsg', e);
+      S.file=f; S.blob=f; S.mediaTipo='video'; S.durata=d;
+      box.innerHTML = '<video src="'+URL.createObjectURL(f)+'" controls playsinline muted></video>';
+      box.style.display='block';
+      msg('mediaMsg', d ? 'Durata '+Math.round(d)+' secondi.' : '', 'avviso');
+    });
+  } else {
+    preparaImmagine(f, S.tipo).then(function(r){
+      S.file=f; S.blob=r.blob; S.mediaTipo='immagine';
+      box.innerHTML = '<img alt="Anteprima" src="'+URL.createObjectURL(r.blob)+'">';
+      box.style.display='block';
+      msg('mediaMsg', r.ritagliata ? 'Ritagliata al centro in 4:5, il formato verticale di Instagram.' : '', 'avviso');
+    }).catch(function(e){ msg('mediaMsg', e.message); });
+  }
+}
+function renderGusti(){
+  var attivi = S.gusti.filter(function(g){ return g.a; });
+  if(!attivi.length){ $('gusti').innerHTML = '<span class="sotto">Nessun gusto attivo in Admin Gusti.</span>'; return; }
+  $('gusti').innerHTML = attivi.map(function(g){
+    var on = S.scelti.indexOf(g.n) !== -1;
+    return '<button class="gusto" data-n="'+esc(g.n)+'" aria-pressed="'+on+'">'+esc((g.e||'')+' '+g.n)+(g.vegan?' 🌱':'')+'</button>';
+  }).join('');
+}
+function aggiornaConta(){
+  var n = $('caption').value.length;
+  $('conta').textContent = $('caption').style.display==='none' ? '' : n+' / 2200';
+}
+
+/* ═══ CHIAMATE FUNZIONI ═══ */
+function chiamaFunzione(nome, corpo){
+  return S.utente.getIdToken().then(function(t){
+    return fetch(FN+nome, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+t}, body:JSON.stringify(corpo) });
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(d){
+      if(!r.ok) throw new Error(d.errore || ('Errore '+r.status));
+      return d;
+    });
+  });
+}
+function generaTesto(){
+  var b = $('btnGenera'); b.disabled=true; b.textContent='Scrivo…'; msg('testoMsg','');
+  var gusti = S.gusti.filter(function(g){ return S.scelti.indexOf(g.n)!==-1; }).map(function(g){ return {n:g.n.replace(/\s*★\s*$/,''), vegan:!!g.vegan}; });
+  chiamaFunzione('generaCaption', {tipo:S.tipo, gusti:gusti, nota:$('nota').value})
+    .then(function(d){ $('caption').value = d.caption; $('caption').style.display='block'; aggiornaConta(); b.textContent='Riscrivi'; })
+    .catch(function(e){ msg('testoMsg', 'Testo non generato: '+e.message+'. Puoi scriverlo a mano qui sotto.'); $('caption').style.display='block'; b.textContent='Riprova'; })
+    .finally(function(){ b.disabled=false; });
+}
+
+/* ═══ APPROVA ═══ */
+// Verifica completa prima di salvare: restituisce il primo problema o null.
+function validaContenuto(st, captionTesto, quando, ora){
+  if(st.tipo!=='vetrina' && !st.blob) return st.tipo==='reel' ? 'Carica il video del reel.' : st.tipo==='post' ? 'Carica la foto del post.' : 'Carica la foto o il video della storia.';
+  if(st.tipo==='reel' || st.tipo==='post'){
+    var c = (captionTesto||'').trim();
+    if(!c) return 'Manca il testo: premi "Scrivi il testo" o scrivilo a mano.';
+    if(c.length > 2200) return 'Il testo supera i 2.200 caratteri consentiti da Instagram.';
+    if(/artigianal/i.test(c)) return 'Il testo contiene "artigianale": sostituiscilo con "naturale".';
+    if(/^(certo|ecco|ok)\b/i.test(c) || /ecco il (post|testo)/i.test(c)) return 'Il testo contiene una frase da chatbot all\'inizio: cancellala.';
+  }
+  if(!quando || isNaN(quando.getTime())) return 'Scegli data e ora di pubblicazione.';
+  if(quando.getTime() < (ora||Date.now()) - 5*60000) return 'L\'orario è già passato: scegline uno futuro.';
+  return null;
+}
+function approva(){
+  if(S.invio) return;
+  var quando = $('quando').value ? new Date($('quando').value) : null;
+  var e = validaContenuto(S, $('caption').value, quando);
+  if(e) return msg('approvaMsg', e);
+  msg('approvaMsg','');
+  S.invio = true; var b=$('btnApprova'); b.disabled=true; b.textContent='Carico…';
+  var ref = db.collection('contenuti').doc();
+  var tipoReale = S.tipo==='vetrina' ? 'storia' : S.tipo;
+  var prendiBlob = S.tipo==='vetrina'
+    ? new Promise(function(ok){ aggiornaVetrina(); $('cv').toBlob(function(bb){ ok(bb); }, 'image/jpeg', 0.92); })
+    : Promise.resolve(S.blob);
+  var mediaTipo = S.tipo==='vetrina' ? 'immagine' : S.mediaTipo;
+  prendiBlob.then(function(blob){
+    var est = mediaTipo==='immagine' ? 'jpg' : (/quicktime/.test(blob.type) ? 'mov' : 'mp4');
+    var path = 'contenuti/'+ref.id+'.'+est;
+    var task = storage.ref(path).put(blob, {contentType: mediaTipo==='immagine' ? 'image/jpeg' : blob.type});
+    $('barra').style.display='block';
+    task.on('state_changed', function(s){ $('barra').firstElementChild.style.width = Math.round(100*s.bytesTransferred/s.totalBytes)+'%'; });
+    return task.then(function(){ return storage.ref(path).getDownloadURL(); }).then(function(url){
+      return ref.set({
+        tipo: tipoReale, vetrina: S.tipo==='vetrina',
+        mediaUrl: url, mediaPath: path, mediaTipo: mediaTipo,
+        caption: (tipoReale==='reel'||tipoReale==='post') ? $('caption').value.trim() : '',
+        gusti: S.tipo==='vetrina' ? S.gusti.filter(function(g){return g.a;}).map(function(g){return g.n;}) : S.scelti.slice(),
+        nota: $('nota').value.trim(),
+        programmataPer: firebase.firestore.Timestamp.fromDate(quando),
+        stato: 'approvato', inLavorazione: false,
+        creato: firebase.firestore.FieldValue.serverTimestamp(), creatoDa: S.utente.email
+      });
+    });
+  }).then(function(){
+    toast('Programmato: '+quando.toLocaleString('it-IT',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));
+    S.scelti=[]; renderGusti(); $('nota').value=''; $('caption').value=''; $('caption').style.display='none'; $('btnGenera').textContent='Scrivi il testo';
+    impostaTipo(S.tipo); aggiornaConta();
+  }).catch(function(err){
+    msg('approvaMsg', 'Non salvato: '+err.message);
+  }).finally(function(){
+    S.invio=false; b.disabled=false; b.textContent='Approva e programma';
+    $('barra').style.display='none'; $('barra').firstElementChild.style.width='0';
+  });
+}
+
+/* ═══ PROGRAMMATI ═══ */
+function inizioSettimana(d){ d=new Date(d); var g=(d.getDay()+6)%7; d.setHours(0,0,0,0); d.setDate(d.getDate()-g); return d; }
+function contaSettimana(docs, ora){
+  var da = inizioSettimana(ora||new Date()).getTime(), a = da + 7*86400000, c={reel:0,post:0,storia:0};
+  docs.forEach(function(x){
+    var t = x.programmataPer && x.programmataPer.toMillis ? x.programmataPer.toMillis() : 0;
+    if(t>=da && t<a && x.stato!=='errore' && c[x.tipo]!==undefined) c[x.tipo]++;
+  });
+  return c;
+}
+function etichettaGiorno(d){
+  var oggi = new Date(); oggi.setHours(0,0,0,0);
+  var g = new Date(d); g.setHours(0,0,0,0);
+  var diff = Math.round((g-oggi)/86400000);
+  if(diff===0) return 'Oggi'; if(diff===1) return 'Domani'; if(diff===-1) return 'Ieri';
+  var s = d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  return s.charAt(0).toUpperCase()+s.slice(1);
+}
+var NOMI_STATO = {approvato:'Programmato', in_elaborazione:'In pubblicazione', pubblicato:'Pubblicato', errore:'Errore'};
+function voceHtml(id, x){
+  var d = x.programmataPer.toDate();
+  var mini = x.mediaTipo==='immagine' ? '<div class="mini" style="background-image:url(\''+esc(x.mediaUrl)+'\')"></div>' : '<div class="mini">▶</div>';
+  var az = '';
+  if(x.stato==='approvato' && !x.inLavorazione) az += '<button class="btn btn-rosso btn-piccolo" data-az="annulla" data-id="'+id+'">Annulla</button>';
+  if(x.stato==='errore') az += '<button class="btn btn-chiaro btn-piccolo" data-az="riprova" data-id="'+id+'">Riprova ora</button><button class="btn btn-rosso btn-piccolo" data-az="annulla" data-id="'+id+'">Elimina</button>';
+  if(x.permalink) az += '<a href="'+esc(x.permalink)+'" target="_blank" rel="noopener">Apri su Instagram</a>';
+  return '<div class="voce">'+mini+'<div>'
+    +'<div class="testa"><span class="ora">'+pad(d.getHours())+':'+pad(d.getMinutes())+'</span><span>'+(x.vetrina?'Oggi in vetrina':NOMI_TIPO[x.tipo])+'</span><span class="stato s-'+x.stato+'">'+NOMI_STATO[x.stato]+'</span></div>'
+    +(x.errore ? '<p style="color:var(--rosso)">'+esc(x.errore)+'</p>' : '')
+    +(x.caption ? '<p>'+esc(x.caption)+'</p>' : '')
+    +(az ? '<div class="azioni">'+az+'</div>' : '')
+    +'</div></div>';
+}
+function renderProgrammati(snap){
+  var docs = []; snap.forEach(function(d){ var x=d.data(); if(x.programmataPer) docs.push({id:d.id, x:x}); });
+  var c = contaSettimana(docs.map(function(o){return o.x;}));
+  $('settimana').innerHTML = ['reel','post','storia'].map(function(t){
+    return '<div class="obiettivo'+(c[t]>=OBIETTIVI[t]?' ok':'')+'"><div class="n">'+c[t]+' <small>/ '+OBIETTIVI[t]+'</small></div><div class="l">'+(t==='storia'?'Storie':NOMI_TIPO[t]+(t==='reel'?'':''))+'</div></div>';
+  }).join('');
+  var daFare = docs.filter(function(o){ return o.x.stato!=='pubblicato'; }).sort(function(a,b){ return a.x.programmataPer.toMillis()-b.x.programmataPer.toMillis(); });
+  var fatti = docs.filter(function(o){ return o.x.stato==='pubblicato'; }).sort(function(a,b){ return b.x.programmataPer.toMillis()-a.x.programmataPer.toMillis(); }).slice(0,10);
+  var h = '';
+  if(!daFare.length) h += '<div class="vuoto">Niente in programma.<br>Crea un reel o la storia di oggi dalla scheda Crea.</div>';
+  var ultimo='';
+  daFare.forEach(function(o){ var g=etichettaGiorno(o.x.programmataPer.toDate()); if(g!==ultimo){ h+='<div class="giorno">'+g+'</div>'; ultimo=g; } h+=voceHtml(o.id,o.x); });
+  if(fatti.length){ h += '<h2 style="margin-top:24px">Pubblicati di recente</h2>'; fatti.forEach(function(o){ h+=voceHtml(o.id,o.x); }); }
+  $('lista').innerHTML = h;
+}
+function azione(az, id){
+  var ref = db.collection('contenuti').doc(id);
+  if(az==='annulla'){
+    if(!confirm('Eliminare questo contenuto programmato?')) return;
+    ref.get().then(function(s){
+      var x = s.data(); if(!x) return;
+      if(x.inLavorazione || x.stato==='in_elaborazione' || x.stato==='pubblicato'){ toast('È già in pubblicazione: non si può annullare.'); return; }
+      return ref.delete().then(function(){ if(x.mediaPath) return storage.ref(x.mediaPath).delete().catch(function(){}); }).then(function(){ toast('Eliminato'); });
+    }).catch(function(e){ toast('Errore: '+e.message); });
+  }
+  if(az==='riprova'){
+    ref.update({ stato:'approvato', errore:null, containerId:null, tentativi:0, inLavorazione:false, programmataPer: firebase.firestore.Timestamp.now() })
+      .then(function(){ toast('Riprovo entro 5 minuti'); }).catch(function(e){ toast('Errore: '+e.message); });
+  }
+}
+
+/* ═══ COLLEGAMENTO ═══ */
+function renderIg(s){
+  var x = s.exists ? s.data() : null;
+  var on = !!(x && x.connesso);
+  $('igPallino').className = 'pallino'+(on?' on':'');
+  if(on){
+    var scad = x.scadenza && x.scadenza.toDate ? x.scadenza.toDate().toLocaleDateString('it-IT') : '';
+    $('igStato').textContent = 'Collegato come @'+x.username+(scad ? ' · rinnovo automatico, token valido fino al '+scad : '');
+  } else $('igStato').textContent = 'Non collegato: i contenuti approvati non verranno pubblicati.';
+  $('igErrore').textContent = (x && x.errore) || '';
+}
+function collega(){
+  var t = $('token').value.trim(); if(!t) return msg('collegaMsg','Incolla il token.');
+  var b=$('btnCollega'); b.disabled=true; b.textContent='Verifico…'; msg('collegaMsg','');
+  chiamaFunzione('collegaInstagram',{token:t})
+    .then(function(d){ $('token').value=''; toast('Collegato come @'+d.username); })
+    .catch(function(e){ msg('collegaMsg', e.message); })
+    .finally(function(){ b.disabled=false; b.textContent='Collega Instagram'; });
+}
+
+/* ═══ NAV ═══ */
+function vai(v){
+  document.querySelectorAll('.vista').forEach(function(s){ s.classList.toggle('attiva', s.id==='v-'+v); });
+  document.querySelectorAll('nav button').forEach(function(b){ if(b.dataset.v===v) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); });
+  window.scrollTo(0,0);
+}
+
+/* ═══ AVVIO ═══ */
+function avvia(){
+  document.querySelectorAll('.tipo').forEach(function(b){ b.onclick=function(){ impostaTipo(b.dataset.tipo); }; });
+  $('file').onchange = function(){ sceltaFile(this.files[0]); };
+  $('gusti').onclick = function(e){
+    var b = e.target.closest('.gusto'); if(!b) return;
+    var n = b.dataset.n, i = S.scelti.indexOf(n);
+    if(i===-1) S.scelti.push(n); else S.scelti.splice(i,1);
+    b.setAttribute('aria-pressed', i===-1 ? 'true':'false');
+  };
+  $('btnGenera').onclick = generaTesto;
+  $('caption').oninput = aggiornaConta;
+  $('quando').onchange = function(){ if(S.tipo==='vetrina') aggiornaVetrina(); };
+  $('btnApprova').onclick = approva;
+  $('btnCollega').onclick = collega;
+  $('lista').onclick = function(e){ var b=e.target.closest('[data-az]'); if(b) azione(b.dataset.az, b.dataset.id); };
+  document.querySelectorAll('nav button').forEach(function(b){ b.onclick=function(){ vai(b.dataset.v); }; });
+  impostaTipo('reel');
+
+  db.collection('config').doc('gusti').onSnapshot(function(s){
+    S.gusti = (s.exists && s.data().lista) ? s.data().lista : [];
+    renderGusti(); if(S.tipo==='vetrina') aggiornaVetrina();
+  }, function(e){ $('gusti').innerHTML='<span class="errore">Gusti non caricati: '+esc(e.message)+'</span>'; });
+  db.collection('contenuti').orderBy('programmataPer','desc').limit(80).onSnapshot(renderProgrammati, function(e){
+    $('lista').innerHTML = '<div class="errore">Lista non caricata: '+esc(e.message)+'</div>';
+  });
+  db.collection('config').doc('instagramStato').onSnapshot(renderIg, function(){ $('igStato').textContent='Stato non leggibile.'; });
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ if(S.tipo==='vetrina') aggiornaVetrina(); });
+}
+
+var avviato = false;
+$('btnAccedi').onclick = function(){
+  firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider())
+    .catch(function(e){ $('msgAccesso').textContent = 'Accesso non riuscito: '+e.message; });
+};
+firebase.auth().onAuthStateChanged(function(u){
+  if(!u){ $('accesso').style.display='flex'; return; }
+  if(EMAIL_AUTORIZZATE.indexOf(u.email)===-1){ firebase.auth().signOut(); $('accesso').style.display='flex'; $('msgAccesso').textContent='Account '+u.email+' non autorizzato.'; return; }
+  $('accesso').style.display='none'; S.utente=u; $('utente').textContent=u.email.split('@')[0];
+  if(!avviato){ avviato=true; avvia(); }
+});
+</script>
+</body>
+</html>
