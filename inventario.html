@@ -17,7 +17,7 @@
   input, select { background:#0b0f0c; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-size:15px; }
   input:focus { outline:2px solid var(--lime); }
   #cerca { width:100%; font-size:17px; padding:14px; }
-  .riga { display:grid; grid-template-columns: 1fr 110px 120px; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); }
+  .riga { display:grid; grid-template-columns: 1fr 110px 120px 34px; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); }
   .riga.trovata { background:rgba(168,201,74,.12); border-radius:8px; }
   .nome { font-weight:600; }
   .attuale { color:var(--muted); font-size:12px; }
@@ -28,7 +28,10 @@
   .btn:disabled { opacity:.5; }
   .nota { font-size:12px; color:var(--muted); }
   .avviso { background:rgba(224,160,48,.12); border:1px solid var(--amber); border-radius:8px; padding:10px; font-size:13px; margin:8px 0; }
-  @media (max-width:600px){ .riga { grid-template-columns: 1fr 100px; } .riga .attuale-col { display:none; } .voce { grid-template-columns:1fr; } }
+    .togli { background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; height:34px; cursor:pointer; font-size:15px; }
+  .togli:hover { color:var(--red); border-color:var(--red); }
+  .btn2 { background:none; border:1px solid var(--border); color:var(--text); border-radius:8px; padding:8px 12px; cursor:pointer; font-size:13px; margin:4px 6px 4px 0; }
+  @media (max-width:600px){ .riga { grid-template-columns: 1fr 100px 34px; } .riga .attuale-col { display:none; } .voce { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -41,7 +44,11 @@
     <h2>1. Conta</h2>
     <div class="nota">Scrivi quanti <b>kg</b> hai di ogni ingrediente. Puoi cercarlo scrivendo il nome oppure passando il lettore sul codice a barre della confezione.</div>
     <div style="margin:10px 0"><input id="cerca" placeholder="🔍 Cerca o scansiona…" autocomplete="off"></div>
+    <div style="margin:4px 0 8px">
+      <button class="btn2" id="togli-zero">✂️ Togli dall'elenco tutte le voci a 0 kg</button>
+    </div>
     <div id="lista"></div>
+    <details style="margin-top:12px"><summary class="nota" id="nascoste-tit" style="cursor:pointer">Voci tolte dall'elenco</summary><div id="nascoste" style="margin-top:8px"></div></details>
   </div>
 
   <div class="card">
@@ -61,7 +68,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, setDoc, getDocs, collection, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, doc, setDoc, getDoc, getDocs, collection, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const MAGC = {
   norm(s){ return String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]+/g,' ').trim(); },
@@ -84,7 +91,11 @@ const db = getFirestore(app);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const kg = g => ((g||0)/1000).toLocaleString('it-IT', { maximumFractionDigits: 2 });
 
-let ufficiali = [], voci = [], perEan = {}, magPerNome = {};
+let ufficiali = [], tutti = [], voci = [], perEan = {}, magPerNome = {};
+// Ingredienti tolti dall'elenco dell'inventario (non servono, es. frutta di stagione finita): ricordati per sempre
+let nascosti = new Set();
+const valori = {};   // kg già scritti: restano anche se l'elenco si ridisegna
+async function salvaNascosti(){ await setDoc(doc(db,'magazzino_impostazioni','generale'), { nascosti: [...nascosti], _ts: Date.now() }, { merge: true }); }
 
 async function carica(){
   const [sRic, sMag, sAbb] = await Promise.all([ getDocs(collection(db,'ricette')), getDocs(collection(db,'magazzino')), getDocs(collection(db,'abbinamenti')) ]);
@@ -120,24 +131,42 @@ async function carica(){
   [...uff.values()].forEach(n => { const c = MAGC.canon(n); if (c !== 'acqua' && !perCanon.has(c)) perCanon.set(c, magPerCanon[c]?.nome || n); });
   // L'acqua è del rubinetto: via dal magazzino
   for (const x of Object.values(magPerNome)) if (MAGC.canon(x.nome) === 'acqua') { await deleteDoc(doc(db,'magazzino', x.id)); delete magPerNome[x.nome.toLowerCase()]; }
-  ufficiali = [...perCanon.values()].sort((a,b) => a.localeCompare(b,'it'));
+  try { const si = await getDoc(doc(db,'magazzino_impostazioni','generale')); if (si.exists()) nascosti = new Set(si.data().nascosti || []); } catch(e){}
+  tutti = [...perCanon.values()].sort((a,b) => a.localeCompare(b,'it'));
+  ufficiali = tutti.filter(n => !nascosti.has(MAGC.canon(n)));
   voci = Object.values(magPerNome).filter(x => !perCanon.has(MAGC.canon(x.nome))).sort((a,b) => a.nome.localeCompare(b.nome,'it'));
   disegna();
-  document.getElementById('stato').textContent = `${ufficiali.length} ingredienti delle ricette · ${voci.length} voci da sistemare`;
+  aggiornaStato();
   document.getElementById('salva').disabled = false;
   document.getElementById('cerca').focus();
 }
 
+function aggiornaStato(){
+  document.getElementById('stato').textContent = `${ufficiali.length} ingredienti in elenco${nascosti.size ? ` (${nascosti.size} tolti)` : ''} · ${voci.length} voci da sistemare`;
+}
 function disegna(){
+  ufficiali = tutti.filter(n => !nascosti.has(MAGC.canon(n)));
   document.getElementById('lista').innerHTML = ufficiali.map((n, i) => {
     const m = magPerNome[n.toLowerCase()];
     return `<div class="riga" data-nome="${esc(n.toLowerCase())}" id="r${i}">
       <div><div class="nome">${esc(n)}</div><div class="attuale">in archivio: ${kg(m?.g)} kg</div></div>
       <div class="attuale-col attuale" style="text-align:right">${kg(m?.g)} kg</div>
-      <div class="contato"><input type="number" inputmode="decimal" step="${MAGC.canon(n) === 'tuorlo' ? '1' : '0.01'}" min="0" placeholder="${MAGC.canon(n) === 'tuorlo' ? 'n° uova' : 'kg contati'}" data-i="${i}" ${MAGC.canon(n) === 'tuorlo' ? 'data-uova="1" title="Scrivi quante uova hai: 18 g di tuorlo per uovo"' : ''}></div>
+      <div class="contato"><input type="number" inputmode="decimal" step="${MAGC.canon(n) === 'tuorlo' ? '1' : '0.01'}" min="0" placeholder="${MAGC.canon(n) === 'tuorlo' ? 'n° uova' : 'kg contati'}" data-i="${i}" data-n="${esc(n)}" value="${esc(valori[n] ?? '')}" class="${valori[n] ? 'fatto' : ''}" ${MAGC.canon(n) === 'tuorlo' ? 'data-uova="1" title="Scrivi quante uova hai: 18 g di tuorlo per uovo"' : ''}></div>
+      <button class="togli" title="Togli dall'elenco dell'inventario" data-togli="${esc(n)}">✕</button>
     </div>`;
   }).join('') || '<div class="nota">Nessuna ricetta trovata.</div>';
-  document.querySelectorAll('.contato input').forEach(inp => inp.addEventListener('input', () => inp.classList.toggle('fatto', inp.value !== '')));
+  document.querySelectorAll('.contato input').forEach(inp => inp.addEventListener('input', () => { inp.classList.toggle('fatto', inp.value !== ''); valori[inp.dataset.n] = inp.value; }));
+  document.querySelectorAll('[data-togli]').forEach(b => b.addEventListener('click', async () => {
+    const n = b.dataset.togli;
+    if (!confirm(`Togliere "${n}" dall'elenco dell'inventario?\n\nNon verrà più chiesto né messo a zero. Puoi rimetterlo in fondo alla pagina.`)) return;
+    nascosti.add(MAGC.canon(n)); delete valori[n]; disegna(); aggiornaStato(); await salvaNascosti();
+  }));
+  const tolti = tutti.filter(n => nascosti.has(MAGC.canon(n)));
+  document.getElementById('nascoste-tit').textContent = `Voci tolte dall'elenco (${tolti.length})`;
+  document.getElementById('nascoste').innerHTML = tolti.map(n => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)"><span>${esc(n)}</span><button class="btn2" data-rimetti="${esc(n)}">↩︎ Rimetti</button></div>`).join('') || '<div class="nota">Nessuna.</div>';
+  document.querySelectorAll('[data-rimetti]').forEach(b => b.addEventListener('click', async () => {
+    nascosti.delete(MAGC.canon(b.dataset.rimetti)); disegna(); aggiornaStato(); await salvaNascosti();
+  }));
   const opz = ufficiali.map(n => `<option value="${esc(n)}">`).join('');
   document.getElementById('voci').innerHTML = (voci.length ? `<datalist id="uff">${opz}</datalist>` : '<div class="nota">Nessuna voce da sistemare 👍</div>') + voci.map((v, i) => `
     <div class="voce">
@@ -145,6 +174,13 @@ function disegna(){
       <div><input list="uff" data-v="${i}" placeholder="Unisci a… (vuoto = elimina)" style="width:100%"></div>
     </div>`).join('');
 }
+
+document.getElementById('togli-zero').addEventListener('click', async () => {
+  const zero = ufficiali.filter(n => !(Math.abs(magPerNome[n.toLowerCase()]?.g || 0) > 0) && !valori[n]);
+  if (!zero.length) { alert('Nessuna voce a 0 kg da togliere.'); return; }
+  if (!confirm(`Togliere dall'elenco ${zero.length} voci a 0 kg?\n\n${zero.slice(0,20).join(', ')}${zero.length > 20 ? '…' : ''}\n\nPotrai rimetterle in fondo alla pagina.`)) return;
+  zero.forEach(n => nascosti.add(MAGC.canon(n))); disegna(); aggiornaStato(); await salvaNascosti();
+});
 
 // Ricerca per nome o codice a barre (il lettore scrive le cifre e preme Invio)
 const cerca = document.getElementById('cerca');
