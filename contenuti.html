@@ -111,6 +111,36 @@ nav{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1p
 nav button{background:none;border:none;padding:12px 4px 13px;font-size:14px;color:var(--muted);cursor:pointer;font-weight:500}
 nav button[aria-current="page"]{color:var(--verde2);font-weight:700;box-shadow:inset 0 3px 0 var(--coppa)}
 
+/* idea reel */
+.tipo.idea{grid-column:1/-1;border-color:var(--verde2)}
+.tipo.idea[aria-pressed="true"]{background:var(--verde2);color:#fff}
+.tipo.idea[aria-pressed="true"] small{color:#d8ead0}
+.scelta{display:flex;gap:6px;flex-wrap:wrap}
+.scelta button{border:1px solid var(--line);background:#fafcf8;border-radius:20px;padding:8px 14px;font-size:14px;cursor:pointer}
+.scelta button[aria-pressed="true"]{background:var(--verde);border-color:var(--verde);color:#fff}
+.etich{font-size:13px;color:var(--muted);margin:12px 0 6px}
+.aggancio{border:1.5px solid var(--line);border-radius:12px;padding:12px;margin-top:8px;cursor:pointer;background:#fafcf8;text-align:left;width:100%;display:block}
+.aggancio[aria-pressed="true"]{border-color:var(--verde2);background:#eef6e4}
+.aggancio .top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.punti{font-weight:700;font-size:13px;padding:2px 9px;border-radius:10px;background:#e7f3dc;color:var(--verde)}
+.punti.medio{background:#fff4dc;color:var(--ambra)}
+.punti.basso{background:#fbeaea;color:var(--rosso)}
+.aggancio .voce{font-size:16px;font-weight:600;margin:6px 0 4px;line-height:1.35}
+.aggancio .sch{font-size:13.5px;color:var(--testo2)}
+.aggancio .nt{font-size:12px;color:var(--muted);margin-top:4px}
+.battuta{display:grid;grid-template-columns:54px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.battuta:first-child{border-top:none}
+.battuta .tm{font-size:12.5px;font-weight:600;color:var(--verde2);padding-top:2px}
+.battuta .inq{font-size:13.5px;color:var(--testo2)}
+.battuta .vc{font-size:15px;margin-top:3px;line-height:1.4}
+.battuta .sc{display:inline-block;margin-top:5px;font-size:12.5px;font-weight:600;background:var(--testo);color:#fff;border-radius:6px;padding:3px 8px}
+.anteprimaFeed{margin-top:8px;font-size:13.5px;line-height:1.45;background:#fafcf8;border:1px dashed var(--line);border-radius:10px;padding:9px 11px;color:var(--testo)}
+.anteprimaFeed b{font-weight:600}
+.anteprimaFeed span{color:var(--muted)}
+.piano{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:8px}
+.piano .q{font-size:12.5px;color:var(--muted);font-weight:600}
+.piano .c{font-size:14px;margin-top:2px;line-height:1.4}
+details.avanzato summary{cursor:pointer;color:var(--muted);font-size:14px}
 #toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--verde2);color:#fff;padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center;z-index:20}
 #toast.su{opacity:1}
 
@@ -142,10 +172,30 @@ nav button[aria-current="page"]{color:var(--verde2);font-weight:700;box-shadow:i
 
     <div class="blocco">
       <div class="tipi" role="group" aria-label="Tipo di contenuto">
+        <button class="tipo idea" data-tipo="idea" aria-pressed="false"><b>💡 Idea reel</b><small>Cosa girare: 3 agganci con punteggio e scaletta delle riprese</small></button>
         <button class="tipo" data-tipo="reel" aria-pressed="true"><b>Reel</b><small>Video breve: raggiunge chi non ti segue</small></button>
         <button class="tipo" data-tipo="post" aria-pressed="false"><b>Post</b><small>Foto, ritagliata in automatico 4:5</small></button>
         <button class="tipo" data-tipo="storia" aria-pressed="false"><b>Storia</b><small>Foto o video, senza testo</small></button>
         <button class="tipo" data-tipo="vetrina" aria-pressed="false" style="grid-column:auto"><b>Oggi in vetrina</b><small>Storia automatica dai gusti attivi</small></button>
+      </div>
+    </div>
+
+    <!-- idea reel -->
+    <div class="blocco" id="ideaBox" style="display:none">
+      <h3>Di cosa parla il reel?</h3>
+      <textarea id="ideaTesto" rows="3" placeholder="Es. i fichi di Labico arrivati stamattina, come passiamo la frutta a mano, la domanda che ci fanno sul senza glutine"></textarea>
+      <div class="etich">Formato</div>
+      <div class="scelta" id="ideaFormato"><button data-v="parlato" aria-pressed="true">🎙️ Parlo io in camera</button><button data-v="prodotto" aria-pressed="false">🍦 Solo prodotto e testo</button></div>
+      <div class="etich">Durata</div>
+      <div class="scelta" id="ideaDurata"><button data-v="15" aria-pressed="false">15 s</button><button data-v="30" aria-pressed="true">30 s</button><button data-v="45" aria-pressed="false">45 s</button></div>
+      <button class="btn btn-pieno" id="btnAgganci" style="margin-top:14px">Proponi 3 agganci</button>
+      <div id="ideaMsg"></div>
+      <div id="agganci"></div>
+      <button class="btn btn-chiaro" id="btnScaletta" style="margin-top:12px;width:100%;display:none">Scrivi la scaletta con questo aggancio</button>
+      <div id="scaletta"></div>
+      <div id="ideaAzioni" style="display:none;margin-top:12px">
+        <button class="btn btn-pieno" id="btnSalvaIdea">Salva tra le idee da girare</button>
+        <button class="btn btn-chiaro" id="btnGiraOra" style="width:100%;margin-top:8px">L'ho già girato: crea il reel</button>
       </div>
     </div>
 
@@ -182,11 +232,12 @@ nav button[aria-current="page"]{color:var(--verde2);font-weight:700;box-shadow:i
         <span class="conta" id="conta"></span>
       </div>
       <textarea id="caption" style="margin-top:10px;display:none" aria-label="Testo del contenuto"></textarea>
+      <div id="anteprimaFeed" class="anteprimaFeed" style="display:none"></div>
       <div id="testoMsg"></div>
     </div>
 
     <!-- quando -->
-    <div class="blocco">
+    <div class="blocco" id="quandoBox">
       <h3>Quando pubblicare</h3>
       <input type="datetime-local" id="quando">
       <div id="quandoMsg"></div>
@@ -200,6 +251,10 @@ nav button[aria-current="page"]{color:var(--verde2);font-weight:700;box-shadow:i
   <section id="v-programmati" class="vista" aria-label="Programmati">
     <h2>Questa settimana</h2>
     <div class="settimana" id="settimana"></div>
+    <button class="btn btn-chiaro" id="btnPiano" style="width:100%;margin-bottom:6px">📅 Proponi cosa manca questa settimana</button>
+    <div id="pianoMsg"></div>
+    <div id="piano"></div>
+    <div id="idee"></div>
     <div id="lista"></div>
   </section>
 
@@ -211,12 +266,16 @@ nav button[aria-current="page"]{color:var(--verde2);font-weight:700;box-shadow:i
       <div id="igErrore" class="errore"></div>
     </div>
     <div class="blocco">
-      <h3>Incolla il token</h3>
-      <p class="sotto" style="margin:0 0 10px">Serve una sola volta. Poi si rinnova da solo ogni settimana.</p>
-      <textarea id="token" rows="4" placeholder="Token di accesso Instagram"></textarea>
-      <button class="btn btn-pieno" id="btnCollega" style="margin-top:10px">Collega Instagram</button>
-      <div id="collegaMsg"></div>
+      <button class="btn btn-pieno" id="btnOauth">Collega con Instagram</button>
+      <p class="sotto" style="margin:10px 0 0">Si apre Instagram: accedi con @greedavididigelato e premi Consenti. Poi torni qui da solo. Il collegamento si rinnova in automatico.</p>
+      <div id="oauthMsg"></div>
     </div>
+    <details class="blocco avanzato">
+      <summary>Alternativa: incolla un token manualmente</summary>
+      <textarea id="token" rows="4" placeholder="Token di accesso Instagram" style="margin-top:10px"></textarea>
+      <button class="btn btn-chiaro" id="btnCollega" style="margin-top:10px;width:100%">Collega con il token</button>
+      <div id="collegaMsg"></div>
+    </details>
   </section>
 </main>
 
@@ -241,11 +300,12 @@ var db = firebase.firestore();
 var storage = firebase.storage();
 var FN = 'https://europe-west3-club-greed.cloudfunctions.net/';
 var EMAIL_AUTORIZZATE = ['gelateriagreed@gmail.com','team.greedfrascati@gmail.com'];
-var OBIETTIVI = {reel:3, post:2, storia:7};
+var OBIETTIVI = {reel:3, post:2, storia:6}; // storie: una al giorno, lunedì chiuso
 var NOMI_TIPO = {reel:'Reel', post:'Post', storia:'Storia'};
 
 /* ═══ STATO ═══ */
-var S = { tipo:'reel', file:null, blob:null, mediaTipo:null, durata:0, gusti:[], scelti:[], utente:null, invio:false };
+var S = { tipo:'reel', file:null, blob:null, mediaTipo:null, durata:0, gusti:[], scelti:[], utente:null, invio:false,
+          formato:'parlato', durataReel:30, agganci:[], aggancio:0, scaletta:null, ideaId:null, piano:[] };
 
 /* ═══ UTILITÀ ═══ */
 function $(id){ return document.getElementById(id); }
@@ -390,14 +450,17 @@ function aggiornaVetrina(){
 function impostaTipo(t){
   S.tipo = t;
   document.querySelectorAll('.tipo').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.tipo===t ? 'true':'false'); });
-  var vet = t==='vetrina';
-  $('mediaBox').style.display = vet ? 'none' : '';
+  var vet = t==='vetrina', idea = t==='idea';
+  $('ideaBox').style.display = idea ? '' : 'none';
+  $('quandoBox').style.display = idea ? 'none' : '';
+  $('mediaBox').style.display = (vet||idea) ? 'none' : '';
   $('vetrinaBox').style.display = vet ? '' : 'none';
-  $('gustiBox').style.display = (t==='reel'||t==='post') ? '' : 'none';
+  $('gustiBox').style.display = (t==='reel'||t==='post'||idea) ? '' : 'none';
   $('testoBox').style.display = (t==='reel'||t==='post') ? '' : 'none';
   $('file').accept = t==='reel' ? 'video/*' : t==='post' ? 'image/*' : 'image/*,video/*';
   $('fileTitolo').textContent = t==='reel' ? 'Carica il video' : t==='post' ? 'Carica la foto' : 'Carica foto o video';
   resetMedia();
+  if(t!=='reel') S.ideaId = null;
   $('quando').value = perInput(orarioProposto(t));
   msg('quandoMsg',''); msg('approvaMsg','');
   if(vet) aggiornaVetrina();
@@ -439,9 +502,22 @@ function renderGusti(){
     return '<button class="gusto" data-n="'+esc(g.n)+'" aria-pressed="'+on+'">'+esc((g.e||'')+' '+g.n)+(g.vegan?' 🌱':'')+'</button>';
   }).join('');
 }
+// Il feed mostra circa le prime 125 battute (e al massimo 2 righe) prima di "altro".
+function testoVisibileFeed(t){
+  t = String(t||'');
+  var righe = t.split('\n'), vis = righe.slice(0,2).join('\n');
+  if(vis.length > 125) vis = vis.slice(0,125);
+  return { visibile: vis.replace(/\s+$/,''), tagliato: vis.length < t.replace(/\s+$/,'').length };
+}
 function aggiornaConta(){
-  var n = $('caption').value.length;
+  var n = $('caption').value.length, vis = $('caption').style.display!=='none' && n>0;
   $('conta').textContent = $('caption').style.display==='none' ? '' : n+' / 2200';
+  var a = $('anteprimaFeed'); a.style.display = vis ? '' : 'none';
+  if(vis){
+    var f = testoVisibileFeed($('caption').value);
+    a.innerHTML = '<b>greedavididigelato</b> '+esc(f.visibile).replace(/\n/g,'<br>')+(f.tagliato?'<span>… altro</span>':'')
+      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">Così appare nel feed prima del tocco: la prima riga deve bastare da sola.</div>';
+  }
 }
 
 /* ═══ CHIAMATE FUNZIONI ═══ */
@@ -511,6 +587,7 @@ function approva(){
       });
     });
   }).then(function(){
+    if(S.ideaId && tipoReale==='reel'){ db.collection('contenuti').doc(S.ideaId).update({stato:'usata'}).catch(function(){}); S.ideaId=null; }
     toast('Programmato: '+quando.toLocaleString('it-IT',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));
     S.scelti=[]; renderGusti(); $('nota').value=''; $('caption').value=''; $('caption').style.display='none'; $('btnGenera').textContent='Scrivi il testo';
     impostaTipo(S.tipo); aggiornaConta();
@@ -557,7 +634,8 @@ function voceHtml(id, x){
 }
 function renderProgrammati(snap){
   var docs = []; snap.forEach(function(d){ var x=d.data(); if(x.programmataPer) docs.push({id:d.id, x:x}); });
-  var c = contaSettimana(docs.map(function(o){return o.x;}));
+  S.ultimiDocs = docs.map(function(o){return o.x;});
+  var c = contaSettimana(S.ultimiDocs);
   $('settimana').innerHTML = ['reel','post','storia'].map(function(t){
     return '<div class="obiettivo'+(c[t]>=OBIETTIVI[t]?' ok':'')+'"><div class="n">'+c[t]+' <small>/ '+OBIETTIVI[t]+'</small></div><div class="l">'+(t==='storia'?'Storie':NOMI_TIPO[t]+(t==='reel'?'':''))+'</div></div>';
   }).join('');
@@ -606,6 +684,162 @@ function collega(){
     .finally(function(){ b.disabled=false; b.textContent='Collega Instagram'; });
 }
 
+/* ═══ IDEA REEL ═══ */
+function sceltaBottoni(id, valore){ document.querySelectorAll('#'+id+' button').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.v===String(valore)?'true':'false'); }); }
+function gustiScelti(){ return S.gusti.filter(function(g){ return S.scelti.indexOf(g.n)!==-1; }).map(function(g){ return {n:g.n.replace(/\s*★\s*$/,''), vegan:!!g.vegan}; }); }
+function classePunti(p){ return p>=75 ? '' : p>=55 ? ' medio' : ' basso'; }
+function renderAgganci(){
+  $('agganci').innerHTML = S.agganci.map(function(a,i){
+    return '<button class="aggancio" data-i="'+i+'" aria-pressed="'+(i===S.aggancio)+'">'
+      +'<div class="top"><span>'+esc(a.formula)+'</span><span class="punti'+classePunti(a.punteggio)+'">'+a.punteggio+'/100</span></div>'
+      +'<div class="voce">'+(S.formato==='parlato' ? '🎙️ ' : '')+esc(a.voce)+'</div>'
+      +'<div class="sch">📱 '+esc(a.schermo)+'</div>'
+      +(a.inquadratura ? '<div class="sch">🎥 '+esc(a.inquadratura)+'</div>' : '')
+      +(a.note && a.note.length ? '<div class="nt">'+esc(a.note.join(' · '))+'</div>' : '')
+      +'</button>';
+  }).join('');
+  $('btnScaletta').style.display = S.agganci.length ? '' : 'none';
+}
+function renderScaletta(sc, box){
+  var h = '<div class="etich">Scaletta · circa '+sc.totale+' secondi'+(sc.musica ? ' · audio: '+esc(sc.musica) : '')+'</div>';
+  h += sc.battute.map(function(b){
+    return '<div class="battuta"><div class="tm">'+b.da+'–'+b.a+'s</div><div>'
+      +'<div class="inq">🎥 '+esc(b.inquadratura)+'</div>'
+      +(b.voce ? '<div class="vc">🎙️ '+esc(b.voce)+'</div>' : '')
+      +(b.schermo ? '<span class="sc">'+esc(b.schermo)+'</span>' : '')
+      +'</div></div>';
+  }).join('');
+  if(sc.avvisi && sc.avvisi.length) h += '<div class="avviso">Da sistemare: '+esc(sc.avvisi.join('; '))+'</div>';
+  box.innerHTML = h;
+}
+function chiediAgganci(){
+  if(!$('ideaTesto').value.trim() && !S.scelti.length) return msg('ideaMsg','Scrivi l\'idea o scegli almeno un gusto.');
+  var b=$('btnAgganci'); b.disabled=true; b.textContent='Penso agli agganci…'; msg('ideaMsg','');
+  S.agganci=[]; S.scaletta=null; $('scaletta').innerHTML=''; $('ideaAzioni').style.display='none'; renderAgganci();
+  chiamaFunzione('ideaReel', {fase:'agganci', idea:$('ideaTesto').value, gusti:gustiScelti(), formato:S.formato, durata:S.durataReel})
+    .then(function(d){ S.agganci=d.agganci||[]; S.aggancio=0; renderAgganci(); })
+    .catch(function(e){ msg('ideaMsg', e.message); })
+    .finally(function(){ b.disabled=false; b.textContent='Proponi altri 3 agganci'; });
+}
+function chiediScaletta(){
+  var a = S.agganci[S.aggancio]; if(!a) return;
+  var b=$('btnScaletta'); b.disabled=true; b.textContent='Scrivo la scaletta…'; msg('ideaMsg','');
+  chiamaFunzione('ideaReel', {fase:'scaletta', idea:$('ideaTesto').value, gusti:gustiScelti(), formato:S.formato, durata:S.durataReel, aggancio:a})
+    .then(function(d){ S.scaletta=d; renderScaletta(d, $('scaletta')); $('ideaAzioni').style.display=''; })
+    .catch(function(e){ msg('ideaMsg', e.message); })
+    .finally(function(){ b.disabled=false; b.textContent='Riscrivi la scaletta'; });
+}
+function datiIdea(){
+  var a = S.agganci[S.aggancio];
+  return { stato:'idea', tipo:'reel', idea:$('ideaTesto').value.trim(), formato:S.formato, durata:S.durataReel,
+    gusti:S.scelti.slice(), aggancio:a, scaletta:S.scaletta,
+    creato:firebase.firestore.FieldValue.serverTimestamp(), creatoDa:S.utente.email };
+}
+function salvaIdea(){
+  if(!S.scaletta) return;
+  var b=$('btnSalvaIdea'); b.disabled=true;
+  return db.collection('contenuti').add(datiIdea()).then(function(r){ toast('Idea salvata in Programmati'); return r.id; })
+    .catch(function(e){ msg('ideaMsg','Non salvata: '+e.message); }).finally(function(){ b.disabled=false; });
+}
+// Passa al reel con la nota per il testo già pronta
+function apriReelDaIdea(id, x){
+  var gusti = (x.gusti||[]).slice();
+  impostaTipo('reel'); S.ideaId = id || null;
+  S.scelti = gusti; renderGusti();
+  $('nota').value = 'Aggancio del video: "'+((x.aggancio&&x.aggancio.voce)||'')+'". Idea: '+(x.idea||'');
+  window.scrollTo(0,0); vai('crea');
+  toast('Carica il video girato e scrivi il testo');
+}
+function giraOra(){
+  if(!S.scaletta) return;
+  db.collection('contenuti').add(datiIdea()).then(function(r){ apriReelDaIdea(r.id, datiIdea()); })
+    .catch(function(){ apriReelDaIdea(null, datiIdea()); });
+}
+
+/* ═══ IDEE SALVATE ═══ */
+function renderIdee(snap){
+  var h=''; var n=0; S.idee = {};
+  snap.forEach(function(d){
+    var x=d.data(); n++;
+    var sc = x.scaletta ? '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:13.5px;color:var(--verde2);font-weight:600">Scaletta</summary><div class="scBox" data-id="'+d.id+'"></div></details>' : '';
+    h += '<div class="voce"><div class="mini">💡</div><div>'
+      +'<div class="testa"><span class="ora">'+(x.formato==='parlato'?'Parlato':'Solo prodotto')+'</span><span>'+(x.durata||30)+' s</span></div>'
+      +'<p style="-webkit-line-clamp:4">'+esc((x.aggancio&&x.aggancio.voce)||x.idea||'')+'</p>'+sc
+      +'<div class="azioni"><button class="btn btn-chiaro btn-piccolo" data-ia="gira" data-id="'+d.id+'">L\'ho girato: crea il reel</button><button class="btn btn-rosso btn-piccolo" data-ia="elimina" data-id="'+d.id+'">Elimina</button></div>'
+      +'</div></div>';
+    S.idee[d.id] = x;
+  });
+  $('idee').innerHTML = n ? '<div class="giorno">Idee da girare</div>'+h : '';
+  document.querySelectorAll('.scBox').forEach(function(box){ var x=S.idee[box.dataset.id]; if(x&&x.scaletta) renderScaletta(x.scaletta, box); });
+}
+function azioneIdea(az, id){
+  var x = (S.idee||{})[id]; if(!x) return;
+  if(az==='gira') apriReelDaIdea(id, x);
+  if(az==='elimina' && confirm('Eliminare questa idea?')) db.collection('contenuti').doc(id).delete().then(function(){ toast('Idea eliminata'); });
+}
+
+/* ═══ PIANO SETTIMANA ═══ */
+function isoLocale(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+var NOMI_PIANO = {reel:'Reel', post:'Post', storia:'Storia'};
+function renderPiano(){
+  var p = S.piano||[];
+  if(!p.length){ $('piano').innerHTML=''; return; }
+  $('piano').innerHTML = '<div class="giorno">Proposta per la settimana</div>' + p.map(function(v,i){
+    var d = new Date(v.data+'T'+v.ora+':00');
+    var g = etichettaGiorno(d)+' '+v.ora;
+    var t = v.vetrina ? 'Oggi in vetrina' : NOMI_PIANO[v.tipo] + (v.formato ? (v.formato==='parlato'?' parlato':' solo prodotto') : '');
+    return '<div class="piano"><div><div class="q">'+esc(g)+' · '+esc(t)+'</div><div class="c">'+esc(v.cosa)+'</div></div>'
+      +'<button class="btn btn-chiaro btn-piccolo" data-pi="'+i+'">Crea</button></div>';
+  }).join('');
+}
+function chiediPiano(){
+  var b=$('btnPiano'); b.disabled=true; b.textContent='Preparo la settimana…'; msg('pianoMsg','');
+  var ora=new Date(), da=inizioSettimana(ora).getTime(), a=da+7*86400000;
+  var programmati = (S.ultimiDocs||[]).filter(function(x){ var t=x.programmataPer.toMillis(); return t>=da && t<a && x.stato!=='errore'; })
+    .map(function(x){ return {data:isoLocale(x.programmataPer.toDate()), tipo:x.vetrina?'storia vetrina':x.tipo}; });
+  var idee = Object.keys(S.idee||{}).map(function(k){ var x=S.idee[k]; return (x.aggancio&&x.aggancio.voce)||x.idea; }).filter(Boolean).slice(0,6);
+  chiamaFunzione('pianoSettimana', {oggi:isoLocale(ora), ora:pad(ora.getHours())+':'+pad(ora.getMinutes()),
+      gusti:S.gusti.filter(function(g){return g.a;}).map(function(g){return {n:g.n.replace(/\s*★\s*$/,''),vegan:!!g.vegan};}), programmati:programmati, idee:idee})
+    .then(function(d){
+      S.piano = d.piano||[]; renderPiano();
+      if(!S.piano.length) msg('pianoMsg','La settimana è già coperta.','avviso');
+      return db.collection('contenuti').doc('_piano').set({stato:'piano', voci:S.piano, creato:firebase.firestore.FieldValue.serverTimestamp()});
+    })
+    .catch(function(e){ msg('pianoMsg', e.message); })
+    .finally(function(){ b.disabled=false; b.textContent='📅 Proponi cosa manca questa settimana'; });
+}
+function creaDaPiano(i){
+  var v = S.piano[i]; if(!v) return;
+  var quando = new Date(v.data+'T'+v.ora+':00');
+  var gusto = S.gusti.filter(function(g){ return v.gusto && g.n.toLowerCase().indexOf(v.gusto.toLowerCase().split(' ')[0])===0; })[0];
+  vai('crea');
+  if(v.tipo==='reel'){
+    impostaTipo('idea'); $('ideaTesto').value = v.cosa; S.formato = v.formato||'prodotto'; sceltaBottoni('ideaFormato', S.formato);
+    S.scelti = gusto ? [gusto.n] : []; renderGusti();
+    return;
+  }
+  impostaTipo(v.vetrina ? 'vetrina' : v.tipo);
+  if(v.tipo==='post'){ $('nota').value = v.cosa; S.scelti = gusto ? [gusto.n] : []; renderGusti(); }
+  if(quando.getTime() > Date.now()) $('quando').value = perInput(quando);
+  if(v.vetrina) aggiornaVetrina();
+}
+
+/* ═══ COLLEGAMENTO CON UN CLIC ═══ */
+function avviaOauth(){
+  var b=$('btnOauth'); b.disabled=true; b.textContent='Apro Instagram…'; msg('oauthMsg','');
+  chiamaFunzione('avviaInstagram', {})
+    .then(function(d){ window.location.href = d.url; })
+    .catch(function(e){ msg('oauthMsg', e.message); b.disabled=false; b.textContent='Collega con Instagram'; });
+}
+function esitoOauth(){
+  var q = new URLSearchParams(window.location.search), esito = q.get('ig');
+  if(!esito) return;
+  history.replaceState(null, '', window.location.pathname);
+  vai('collega');
+  if(esito==='ok') toast('Collegato come @'+(q.get('m')||''));
+  else msg('oauthMsg', 'Collegamento non riuscito: '+(q.get('m')||'errore sconosciuto'));
+}
+
 /* ═══ NAV ═══ */
 function vai(v){
   document.querySelectorAll('.vista').forEach(function(s){ s.classList.toggle('attiva', s.id==='v-'+v); });
@@ -615,7 +849,7 @@ function vai(v){
 
 /* ═══ AVVIO ═══ */
 function avvia(){
-  document.querySelectorAll('.tipo').forEach(function(b){ b.onclick=function(){ impostaTipo(b.dataset.tipo); }; });
+  document.querySelectorAll('.tipo').forEach(function(b){ b.onclick=function(){ S.ideaId=null; impostaTipo(b.dataset.tipo); }; });
   $('file').onchange = function(){ sceltaFile(this.files[0]); };
   $('gusti').onclick = function(e){
     var b = e.target.closest('.gusto'); if(!b) return;
@@ -628,6 +862,17 @@ function avvia(){
   $('quando').onchange = function(){ if(S.tipo==='vetrina') aggiornaVetrina(); };
   $('btnApprova').onclick = approva;
   $('btnCollega').onclick = collega;
+  $('btnOauth').onclick = avviaOauth;
+  $('ideaFormato').onclick = function(e){ var b=e.target.closest('button'); if(!b) return; S.formato=b.dataset.v; sceltaBottoni('ideaFormato', S.formato); };
+  $('ideaDurata').onclick = function(e){ var b=e.target.closest('button'); if(!b) return; S.durataReel=+b.dataset.v; sceltaBottoni('ideaDurata', S.durataReel); };
+  $('btnAgganci').onclick = chiediAgganci;
+  $('agganci').onclick = function(e){ var b=e.target.closest('.aggancio'); if(!b) return; S.aggancio=+b.dataset.i; S.scaletta=null; $('scaletta').innerHTML=''; $('ideaAzioni').style.display='none'; renderAgganci(); };
+  $('btnScaletta').onclick = chiediScaletta;
+  $('btnSalvaIdea').onclick = salvaIdea;
+  $('btnGiraOra').onclick = giraOra;
+  $('btnPiano').onclick = chiediPiano;
+  $('piano').onclick = function(e){ var b=e.target.closest('[data-pi]'); if(b) creaDaPiano(+b.dataset.pi); };
+  $('idee').onclick = function(e){ var b=e.target.closest('[data-ia]'); if(b) azioneIdea(b.dataset.ia, b.dataset.id); };
   $('lista').onclick = function(e){ var b=e.target.closest('[data-az]'); if(b) azione(b.dataset.az, b.dataset.id); };
   document.querySelectorAll('nav button').forEach(function(b){ b.onclick=function(){ vai(b.dataset.v); }; });
   impostaTipo('reel');
@@ -639,6 +884,12 @@ function avvia(){
   db.collection('contenuti').orderBy('programmataPer','desc').limit(80).onSnapshot(renderProgrammati, function(e){
     $('lista').innerHTML = '<div class="errore">Lista non caricata: '+esc(e.message)+'</div>';
   });
+  db.collection('contenuti').where('stato','==','idea').onSnapshot(renderIdee, function(){});
+  db.collection('contenuti').doc('_piano').onSnapshot(function(s){
+    var x = s.exists ? s.data() : null; var oggi = isoLocale(new Date());
+    S.piano = x && x.voci ? x.voci.filter(function(v){ return v.data >= oggi; }) : []; renderPiano();
+  }, function(){});
+  esitoOauth();
   db.collection('config').doc('instagramStato').onSnapshot(renderIg, function(){ $('igStato').textContent='Stato non leggibile.'; });
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ if(S.tipo==='vetrina') aggiornaVetrina(); });
 }
