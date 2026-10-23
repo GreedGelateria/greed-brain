@@ -1,6 +1,7 @@
-const CACHE = 'greed-ddt-v1';
+const CACHE = 'greed-ddt-v2';
 const ASSETS = [
   '/greed-brain/ddt.html',
+  '/greed-brain/accesso.js',
 ];
 
 self.addEventListener('install', e => {

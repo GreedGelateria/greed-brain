@@ -50,129 +50,57 @@
 </div>
 
 <script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, getDocs, collection } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-
-const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
-const db = getFirestore(initializeApp(FB));
-
-function norm(s) {
-  return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,' ').replace(/\s+/g,' ').trim();
-}
-
+// Fase C: la pagina non legge più il database (chiuso), chiede la scheda al server.
+// Gli ingredienti sono in ordine di quantità, ma senza dosi: la ricetta resta riservata.
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function main() {
-  const params = new URLSearchParams(location.search);
-  const lottoId = params.get('id');
-
+  const lottoId = new URLSearchParams(location.search).get('id');
   if (!lottoId) {
     document.getElementById('titolo').textContent = 'QR non valido';
     document.getElementById('body').innerHTML = '<div class="err">⚠️ Nessun lotto specificato nel QR code.</div>';
     return;
   }
-
   try {
-    // 1. Carica produzione dal registro
-    const snapReg = await getDocs(collection(db, 'registro'));
-    let produzione = null;
-    snapReg.forEach(d => { if(d.id === lottoId) produzione = { id: d.id, ...d.data() }; });
-
-    if (!produzione) {
+    const r = await fetch('https://europe-west3-club-greed.cloudfunctions.net/schedaLotto?id=' + encodeURIComponent(lottoId));
+    const p = await r.json();
+    if (r.status === 404) {
       document.getElementById('titolo').textContent = 'Lotto non trovato';
-      document.getElementById('body').innerHTML = `<div class="err">⚠️ Il lotto <strong>${lottoId}</strong> non è presente nel registro produzioni.</div>`;
+      document.getElementById('body').innerHTML = `<div class="err">⚠️ Il lotto <strong>${esc(lottoId)}</strong> non è presente nel registro produzioni.</div>`;
       return;
     }
-
-    document.getElementById('titolo').textContent = produzione.gusto || '—';
-    document.getElementById('lotto-badge').innerHTML = `<span class="lotto-badge">Lotto: ${produzione.id}</span>`;
-
-    // 2. Carica ricetta
-    const snapRic = await getDocs(collection(db, 'ricette'));
-    let ricetta = null;
-    snapRic.forEach(d => {
-      const r = d.data();
-      if(norm(r.nome || d.id) === norm(produzione.gusto)) ricetta = r;
-    });
-
-    // 3. Carica acquistiStorico
-    const snapAcq = await getDocs(collection(db, 'acquistiStorico'));
-    const acquistiMap = {};
-    snapAcq.forEach(d => {
-      const a = d.data();
-      if(!a.ingrediente) return;
-      if(produzione.data && a.data && a.data > produzione.data) return;
-      const k = norm(a.ingrediente);
-      if(!acquistiMap[k]) acquistiMap[k] = [];
-      acquistiMap[k].push(a);
-    });
-    Object.keys(acquistiMap).forEach(k => acquistiMap[k].sort((a,b)=>(b.data||'').localeCompare(a.data||'')));
-
-    // 4. Carica magazzino
-    const snapMag = await getDocs(collection(db, 'magazzino'));
-    const magMap = {};
-    snapMag.forEach(d => { const m = d.data(); if(m.nome) magMap[norm(m.nome)] = m; });
-
-    // 5. Render
-    // Prima la ricetta salvata CON la produzione (quella usata davvero quel giorno)
-    const ingredienti = produzione.ricetta?.ingredienti?.length ? produzione.ricetta.ingredienti : (ricetta?.ingredienti || []);
-    const scadenza = produzione.scadenza || produzione.scad || '—';
-    const allergeni = produzione.allergeni || ricetta?.allergeni || '—';
-
-    let html = '';
-
-    // Info produzione
-    html += `<div class="section">
+    if (!r.ok || !p.ok) throw new Error(p.error || ('errore ' + r.status));
+    document.getElementById('titolo').textContent = p.gusto || '—';
+    document.getElementById('lotto-badge').innerHTML = `<span class="lotto-badge">Lotto: ${esc(p.lotto)}</span>`;
+    let html = `<div class="section">
       <div class="section-title">📋 Dati produzione</div>
       <div class="info-grid">
-        <div class="info-box"><div class="info-label">Data produzione</div><div class="info-value">${produzione.data||'—'}</div></div>
-        <div class="info-box"><div class="info-label">Scadenza</div><div class="info-value">${scadenza}</div></div>
-        <div class="info-box"><div class="info-label">Kg prodotti</div><div class="info-value">${(produzione.qty||0)} kg</div></div>
-        <div class="info-box"><div class="info-label">Operatore</div><div class="info-value">${produzione.op||'—'}</div></div>
+        <div class="info-box"><div class="info-label">Data produzione</div><div class="info-value">${esc(p.data || '—')}</div></div>
+        <div class="info-box"><div class="info-label">Scadenza</div><div class="info-value">${esc(p.scadenza || '—')}</div></div>
+        <div class="info-box"><div class="info-label">Kg prodotti</div><div class="info-value">${esc(p.kg || 0)} kg</div></div>
       </div>
     </div>`;
-
-    // Ingredienti
-    if(ingredienti.length > 0) {
+    if (p.materie && p.materie.length) {
       html += `<div class="section"><div class="section-title">🧂 Materie prime (dalla più abbondante)</div>`;
-      const sorted = [...ingredienti].sort((a,b) => (b.d||b.q||b.quantita||0) - (a.d||a.q||a.quantita||0));
-      sorted.forEach(ing => {
-        const nomeIng = ing.nome || '';
-        const k = norm(nomeIng);
-        const acq = acquistiMap[k]?.find(x=>x.lotto) || acquistiMap[k]?.[0];
-        const mag = magMap[k];
-        const fornitore = acq?.fornitore || mag?.fornitore || null;
-        const lotto = acq?.lotto || mag?.ultimoLotto || null;
-        const qty = (ing.d||ing.q||ing.quantita||0);
-        const qtyStr = typeof qty === 'number' ? qty.toFixed(1) + ' g/kg' : qty + ' g/kg';
+      p.materie.forEach(m => {
         html += `<div class="ing-row">
-          <div class="ing-nome">${nomeIng}</div>
-          <div class="ing-qty">${qtyStr}</div>
-          ${fornitore ? `<div class="ing-fornitore">🏭 ${fornitore}</div>` : ''}
-          ${lotto && !/[,;]/.test(lotto) ? `<div class="ing-lotto">Lotto fornitore: ${lotto}</div>` : ''}
-          ${lotto && /[,;]/.test(lotto) ? `<div class="ing-lotto-dubbio">⚠️ Lotto da verificare — la bolla riportava più lotti:<br><span>${lotto}</span></div>` : ''}
+          <div class="ing-nome">${esc(m.nome)}</div>
+          ${m.fornitore ? `<div class="ing-fornitore">🏭 ${esc(m.fornitore)}</div>` : ''}
+          ${m.lotto ? `<div class="ing-lotto">Lotto fornitore: ${esc(m.lotto)}</div>` : ''}
+          ${m.lottoDaVerificare ? `<div class="ing-lotto-dubbio">⚠️ Lotto da verificare — la bolla riportava più lotti:<br><span>${esc(m.lottoDaVerificare)}</span></div>` : ''}
         </div>`;
       });
       html += '</div>';
     }
-
-    // Allergeni
-    if(allergeni && allergeni !== '—') {
-      html += `<div class="section">
-        <div class="allergeni">
-          <div class="allergeni-title">⚠️ ALLERGENI</div>
-          <div class="allergeni-list">${allergeni}</div>
-        </div>
-      </div>`;
+    if (p.allergeni) {
+      html += `<div class="section"><div class="allergeni"><div class="allergeni-title">⚠️ ALLERGENI</div><div class="allergeni-list">${esc(p.allergeni)}</div></div></div>`;
     }
-
     document.getElementById('body').innerHTML = html;
     document.getElementById('footer').textContent =
       `GREED Srl • Via Fontana dell'Oste 142, 00030 Colleferro (RM) • P.IVA 16745501003 • AIC senza glutine dal 2004 • Generato: ${new Date().toLocaleString('it-IT')}`;
-
-  } catch(e) {
-    document.getElementById('body').innerHTML = `<div class="err">Errore: ${e.message}</div>`;
+  } catch (e) {
+    document.getElementById('body').innerHTML = `<div class="err">Scheda non disponibile al momento: ${esc(e.message)}</div>`;
   }
 }
-
 main();
 </script>
 </body>

@@ -281,6 +281,7 @@ body {
 <div class="toast" id="toast"></div>
 
 <script type="module">
+import { richiediAccesso } from './accesso.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -373,6 +374,7 @@ const todayStr = today.toISOString().split('T')[0];
 (async () => {
   const app = initializeApp(FB_CONFIG);
   db = getFirestore(app);
+  await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
   renderUserChips();
   renderPinDots();
 })();
