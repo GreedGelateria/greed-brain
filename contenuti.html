@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>GREED Contenuti</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@1,600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -62,6 +62,8 @@ h2{font-size:20px;font-weight:700;margin:14px 4px 10px}
 
 textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fafcf8;line-height:1.45;resize:vertical}
 textarea#caption{min-height:190px}
+input.campo{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fafcf8}
+#matStoriaBox canvas{width:100%;max-width:300px;display:block;margin:12px auto 0;border-radius:12px;box-shadow:0 2px 0 var(--line)}
 input[type=datetime-local]{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fafcf8}
 .riga{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .conta{font-size:12px;color:var(--muted);margin-left:auto}
@@ -177,6 +179,7 @@ details.avanzato summary{cursor:pointer;color:var(--muted);font-size:14px}
         <button class="tipo" data-tipo="post" aria-pressed="false"><b>Post</b><small>Foto, ritagliata in automatico 4:5</small></button>
         <button class="tipo" data-tipo="storia" aria-pressed="false"><b>Storia</b><small>Foto o video, senza testo</small></button>
         <button class="tipo" data-tipo="vetrina" aria-pressed="false" style="grid-column:auto"><b>Oggi in vetrina</b><small>Storia automatica dai gusti attivi</small></button>
+        <button class="tipo" data-tipo="materia" aria-pressed="false" style="grid-column:1/-1"><b>🌾 Le nostre materie prime</b><small>Racconta un ingrediente: post, reel o storia grafica</small></button>
       </div>
     </div>
 
@@ -196,6 +199,19 @@ details.avanzato summary{cursor:pointer;color:var(--muted);font-size:14px}
       <div id="ideaAzioni" style="display:none;margin-top:12px">
         <button class="btn btn-pieno" id="btnSalvaIdea">Salva tra le idee da girare</button>
         <button class="btn btn-chiaro" id="btnGiraOra" style="width:100%;margin-top:8px">L'ho già girato: crea il reel</button>
+      </div>
+    </div>
+
+    <!-- le nostre materie prime -->
+    <div class="blocco" id="materiaBox" style="display:none">
+      <h3>Quale materia prima?</h3>
+      <input type="text" class="campo" id="matNome" placeholder="Es. Pistacchio, Nocciola della Tuscia, Fichi di Labico">
+      <div class="etich">Formato</div>
+      <div class="scelta" id="matFormato"><button data-v="post" aria-pressed="true">📷 Post con foto</button><button data-v="reel" aria-pressed="false">🎬 Reel</button><button data-v="matstoria" aria-pressed="false">🖼️ Storia grafica</button></div>
+      <div id="matStoriaBox" style="display:none">
+        <div class="etich">Provenienza (riga sotto il nome, facoltativa)</div>
+        <input type="text" class="campo" id="matProv" placeholder="Es. Bronte, Sicilia">
+        <canvas id="cvMat" width="1080" height="1920" aria-label="Anteprima storia materia prima"></canvas>
       </div>
     </div>
 
@@ -386,87 +402,224 @@ function righeTesto(x, testo, maxW){
   parole.forEach(function(p){ var t = r ? r+' '+p : p; if(x.measureText(t).width > maxW && r){ righe.push(r); r=p; } else r=t; });
   if(r) righe.push(r); return righe;
 }
-// Impagina i gusti nello spazio disponibile: 1 colonna fino a 10 gusti, poi 2.
-// Sceglie il carattere più grande con cui tutto entra; i nomi lunghi vanno a capo, mai troncati.
-function impaginaGusti(x, gusti, larghezza, altezza){
-  var n = gusti.length, col = n>10 ? 2 : 1, gap = 44;
-  var colW = (larghezza-(col-1)*gap)/col;
-  var testi = gusti.map(function(g){ return { em:(g.e||''), nome:g.n.replace(/\s*★\s*$/,'') + (g.vegan ? '\u00A0🌱' : '') }; });
-  for(var size=64; size>=26; size-=2){
-    x.font = '600 '+size+'px Outfit, sans-serif';
-    var rientro = Math.ceil(x.measureText('🍦 ').width), riga = Math.round(size*1.18), spazio = Math.round(size*0.55);
-    var voci = testi.map(function(t){
-      var righe = righeTesto(x, t.nome, colW-rientro);
-      righe[0] = (t.em ? t.em+' ' : '') + righe[0];
-      return { righe:righe, h: righe.length*riga + spazio };
-    });
-    // distribuisce le voci tra le colonne in ordine, bilanciando l'altezza
-    var tot = voci.reduce(function(s,v){ return s+v.h; },0), limite = tot/col, cx=0, cy=0, maxH=0;
-    voci.forEach(function(v, i){
-      if(col===2 && cx===0 && cy>0 && cy + v.h/2 > limite){ cx = 1; cy = 0; }
-      v.x = cx*(colW+gap); v.y = cy; cy += v.h; if(cy>maxH) maxH=cy;
-    });
-    var troppoLarga = voci.some(function(v){ return v.righe.some(function(r,k){ return x.measureText(r).width > colW - (k?rientro:0) + 1; }); });
-    if(maxH - spazio <= altezza && !troppoLarga) return { size:size, riga:riga, rientro:rientro, voci:voci };
+// Stile elegante GREED: fondo crema, testi verde scuro, gusti divisi in Creme e Vegani
+var VET = { crema:'#FBF7EF', scuro:'#22381F', verde:'#5C7A4A', tenue:'#7C8C70', linea:'#C9D3BE',
+  titolo:'"Cormorant Garamond", Georgia, serif', testo:'Outfit, system-ui, sans-serif' };
+function vetSpaziato(x, testo, cx, y, spazio){
+  // Spaziatura tra le lettere: nativa nel browser (più precisa), a mano dove non c'è
+  if('letterSpacing' in x){
+    x.letterSpacing = spazio+'px'; var w = x.measureText(testo).width - spazio;
+    x.fillText(testo, cx - w/2, y); x.letterSpacing = '0px'; return w;
   }
-  return { size:26, riga:31, rientro:rientro, voci:voci };
+  var chars = Array.from(testo), larg = chars.reduce(function(s,c){ return s + x.measureText(c).width; },0) + spazio*(chars.length-1);
+  var px = cx - larg/2;
+  chars.forEach(function(c){ x.fillText(c, px, y); px += x.measureText(c).width + spazio; });
+  return larg;
+}
+function vetRighe(x, testo, maxW){
+  var parole = String(testo).split(/\s+/), righe=[], r='';
+  parole.forEach(function(p){ var t = r ? r+' '+p : p; if(x.measureText(t).width > maxW && r){ righe.push(r); r=p; } else r=t; });
+  if(r) righe.push(r); return righe;
+}
+function vetNome(g){ return String(g.n||'').replace(/\s*★\s*$/,'').replace(/\s+/g,' ').trim(); }
+// Prova le grandezze dal più grande al più piccolo finché tutti i gusti entrano nello spazio
+function vetImpagina(x, gruppi, W, altezza){
+  for(var s=52; s>=24; s-=1){
+    x.font = '500 '+s+'px '+VET.testo;
+    var riga = Math.round(s*1.16), aria = Math.round(s*0.62), rientro = Math.round(s*0.62);
+    var gap = 56, colW = (W - 2*120 - gap)/2, tot = 0;
+    var out = gruppi.map(function(gr){
+      var voci = gr.gusti.map(function(g){ var r = vetRighe(x, vetNome(g), colW - rientro); return { righe:r, h:r.length*riga + aria }; });
+      var somma = voci.reduce(function(a,v){ return a+v.h; },0), meta = somma/2, sx=0, cy=0, hL=0, hR=0, col=0;
+      voci.forEach(function(v,i){ if(col===0 && cy>0 && cy + v.h/2 > meta && voci.length>1){ col=1; hL=cy; cy=0; } v.col=col; v.y=cy; cy+=v.h; });
+      if(col===0) hL=cy; else hR=cy;
+      var h = Math.max(hL,hR) - aria;
+      return { titolo:gr.titolo, voci:voci, h:h };
+    });
+    var testata = Math.round(s*0.9) + 40;
+    tot = out.reduce(function(a,g){ return a + testata + g.h; },0) + (out.length-1)*Math.round(s*1.3);
+    var larga = out.some(function(g){ return g.voci.some(function(v){ return v.righe.some(function(r){ return x.measureText(r).width > colW - rientro + 1; }); }); });
+    if(tot <= altezza && !larga) return { s:s, riga:riga, rientro:rientro, colW:colW, gap:gap, gruppi:out, testata:testata, tot:tot };
+  }
+  return null;
 }
 function disegnaVetrina(cv, gusti, data){
-  var x = cv.getContext('2d'), W=cv.width, H=cv.height;
-  x.fillStyle='#8cbf3f'; x.fillRect(0,0,W,H);
-  x.fillStyle='#1a2e12'; x.textBaseline='alphabetic';
-  x.font='800 64px Outfit, sans-serif'; x.fillText('GREED', 90, 180);
-  x.font='500 40px Outfit, sans-serif'; x.fillStyle='#2f5e13';
+  var x = cv.getContext('2d'), W = cv.width, H = cv.height;
+  x.textBaseline = 'alphabetic'; x.textAlign = 'left';
+  // fondo e cornice
+  x.fillStyle = VET.crema; x.fillRect(0,0,W,H);
+  x.strokeStyle = VET.verde; x.lineWidth = 3; x.strokeRect(44,44,W-88,H-88);
+  x.strokeStyle = VET.linea; x.lineWidth = 1.5; x.strokeRect(58,58,W-116,H-116);
+  // testata (sotto la zona del nome account di Instagram)
+  var y0 = 250;
+  if(typeof window !== 'undefined' && window.LOGO_GREED && window.LOGO_GREED.complete && window.LOGO_GREED.naturalWidth){
+    var L = window.LOGO_GREED, lh = 120, lw = lh * L.naturalWidth / L.naturalHeight;
+    x.drawImage(L, (W-lw)/2, 170, lw, lh); y0 = 345;
+  }
+  x.fillStyle = VET.scuro; x.font = '700 50px '+VET.testo; vetSpaziato(x, 'GREED', W/2, y0, 16);
+  x.fillStyle = VET.verde; x.font = '500 21px '+VET.testo; vetSpaziato(x, 'GELATERIA NATURALE · FRASCATI', W/2, y0+42, 5);
+  // titolo
+  x.fillStyle = VET.scuro; x.font = 'italic 600 128px '+VET.titolo; x.textAlign='center';
+  x.fillText('Oggi in vetrina', W/2, y0+195); x.textAlign='left';
   var giorni=['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'];
-  x.fillText(giorni[data.getDay()]+' '+data.getDate(), 90, 236);
-  x.fillStyle='#1a2e12'; x.font='800 118px Outfit, sans-serif';
-  x.fillText('Oggi', 90, 400); x.fillText('in vetrina', 90, 520);
-
-  var top=600, bottom=H-250, n=gusti.length;
-  var lay = impaginaGusti(x, gusti, W-180, bottom-top);
-  x.fillStyle='#1a2e12';
-  lay.voci.forEach(function(v){
-    x.font = '600 '+lay.size+'px Outfit, sans-serif';
-    v.righe.forEach(function(r, k){ x.fillText(r, 90 + v.x + (k ? lay.rientro : 0), top + v.y + lay.size + k*lay.riga); });
-  });
-  if(!n){ x.font='500 44px Outfit, sans-serif'; x.fillStyle='#2f5e13'; righeTesto(x,'Nessun gusto attivo in Admin Gusti.',W-180).forEach(function(l,i){ x.fillText(l,90,top+60+i*56); }); }
-
-  x.fillStyle='#1a2e12'; x.fillRect(0,H-190,W,190);
-  x.fillStyle='#d8ead0'; x.font='600 44px Outfit, sans-serif';
-  x.fillText('Piazza Roma 16, Frascati', 90, H-110);
-  x.font='500 32px Outfit, sans-serif'; x.fillStyle='#a7c84b';
-  x.fillText('100% senza glutine AIC · 🌱 vegan', 90, H-60);
+  var mesi=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  x.fillStyle = VET.tenue; x.font = '500 27px '+VET.testo;
+  vetSpaziato(x, (giorni[data.getDay()]+' '+data.getDate()+' '+mesi[data.getMonth()]).toUpperCase(), W/2, y0+268, 4);
+  // ornamento
+  var yo = y0+312; x.strokeStyle = VET.verde; x.lineWidth = 2;
+  x.beginPath(); x.moveTo(W/2-90, yo); x.lineTo(W/2-18, yo); x.moveTo(W/2+18, yo); x.lineTo(W/2+90, yo); x.stroke();
+  x.fillStyle = VET.verde; x.beginPath(); x.arc(W/2, yo, 5, 0, Math.PI*2); x.fill();
+  // gusti: creme e vegani
+  var top = yo + 60, fondo = 1590;
+  var gruppi = [
+    { titolo:'LE CREME', gusti: gusti.filter(function(g){ return !g.vegan; }) },
+    { titolo:'VEGANI', gusti: gusti.filter(function(g){ return !!g.vegan; }) }
+  ].filter(function(g){ return g.gusti.length; });
+  if(!gruppi.length){
+    x.fillStyle = VET.tenue; x.font = '500 40px '+VET.testo; x.textAlign='center';
+    x.fillText('Nessun gusto attivo in Admin Gusti.', W/2, top+120); x.textAlign='left';
+  } else {
+    var lay = vetImpagina(x, gruppi, W, fondo-top);
+    if(!lay){ lay = vetImpagina(x, gruppi, W, 99999); }
+    var y = top + Math.max(0, Math.round((fondo-top-lay.tot)/2) - 20);
+    lay.gruppi.forEach(function(g, gi){
+      // titolo del gruppo con filetti ai lati
+      x.font = '600 25px '+VET.testo; x.fillStyle = VET.verde;
+      var ly = y + 25, lw = vetSpaziato(x, g.titolo, W/2, ly, 7);
+      x.strokeStyle = VET.linea; x.lineWidth = 1.5; x.beginPath();
+      x.moveTo(120, ly-8); x.lineTo(W/2 - lw/2 - 22, ly-8); x.moveTo(W/2 + lw/2 + 22, ly-8); x.lineTo(W-120, ly-8); x.stroke();
+      y += lay.testata;
+      x.font = '500 '+lay.s+'px '+VET.testo;
+      g.voci.forEach(function(v){
+        var bx = 120 + v.col*(lay.colW + lay.gap), by = y + v.y + lay.s*0.82;
+        x.fillStyle = VET.verde; x.beginPath(); x.arc(bx + lay.s*0.16, by - lay.s*0.3, Math.max(4, lay.s*0.11), 0, Math.PI*2); x.fill();
+        x.fillStyle = VET.scuro;
+        v.righe.forEach(function(r,k){ x.fillText(r, bx + lay.rientro, by + k*lay.riga); });
+      });
+      y += g.h + (gi < lay.gruppi.length-1 ? Math.round(lay.s*1.3) : 0);
+    });
+  }
+  // piede (sopra la barra "Scrivi un messaggio" di Instagram)
+  x.strokeStyle = VET.linea; x.lineWidth = 1.5; x.beginPath(); x.moveTo(W/2-200, 1640); x.lineTo(W/2+200, 1640); x.stroke();
+  x.textAlign='center';
+  x.fillStyle = VET.scuro; x.font = 'italic 600 46px '+VET.titolo; x.fillText('Piazza Roma 16, Frascati', W/2, 1700);
+  x.fillStyle = VET.verde; x.font = '500 22px '+VET.testo; vetSpaziato(x, 'SENZA GLUTINE · CERTIFICAZIONE AIC DAL 2004', W/2, 1745, 3);
+  x.textAlign='left';
 }
+// Logo facoltativo: se nella cartella di Brain c'è logo_greed.png viene messo in testa alla storia
+window.LOGO_GREED = new Image();
+window.LOGO_GREED.onload = function(){ if(S.tipo==='vetrina') aggiornaVetrina(); };
+window.LOGO_GREED.src = 'logo_greed.png';
+var _fontVetrina = Promise.all([
+  document.fonts.load('italic 600 128px "Cormorant Garamond"'), document.fonts.load('500 40px Outfit'),
+  document.fonts.load('600 25px Outfit'), document.fonts.load('700 50px Outfit')
+]).catch(function(){});
+// Storia grafica "Le nostre materie prime": stesso stile della vetrina
+function disegnaMateria(){
+  var cv = $('cvMat'); if(!cv) return;
+  var x = cv.getContext('2d'), W = cv.width, H = cv.height;
+  x.textBaseline='alphabetic'; x.textAlign='left';
+  x.fillStyle = VET.crema; x.fillRect(0,0,W,H);
+  x.strokeStyle = VET.verde; x.lineWidth = 3; x.strokeRect(44,44,W-88,H-88);
+  x.strokeStyle = VET.linea; x.lineWidth = 1.5; x.strokeRect(58,58,W-116,H-116);
+  var y0 = 250;
+  x.fillStyle = VET.scuro; x.font = '700 50px '+VET.testo; vetSpaziato(x, 'GREED', W/2, y0, 16);
+  x.fillStyle = VET.verde; x.font = '500 21px '+VET.testo; vetSpaziato(x, 'GELATERIA NATURALE · FRASCATI', W/2, y0+42, 5);
+  // rubrica
+  var yr = y0 + 120; x.font = '600 25px '+VET.testo; x.fillStyle = VET.verde;
+  var lw = vetSpaziato(x, 'LE NOSTRE MATERIE PRIME', W/2, yr, 7);
+  x.strokeStyle = VET.linea; x.lineWidth = 1.5; x.beginPath();
+  x.moveTo(120, yr-8); x.lineTo(W/2-lw/2-22, yr-8); x.moveTo(W/2+lw/2+22, yr-8); x.lineTo(W-120, yr-8); x.stroke();
+  var y = yr + 50, fondo = 1590;
+  // foto (facoltativa) incorniciata, ritagliata a riempire
+  if(S.matImg){
+    var fx=150, fw=W-300, fh=Math.round(fw*0.78), im=S.matImg, k=Math.max(fw/im.naturalWidth, fh/im.naturalHeight);
+    var sw=fw/k, sh=fh/k, sx=(im.naturalWidth-sw)/2, sy=(im.naturalHeight-sh)/2;
+    x.drawImage(im, sx, sy, sw, sh, fx, y, fw, fh);
+    x.strokeStyle = VET.verde; x.lineWidth = 2; x.strokeRect(fx-10, y-10, fw+20, fh+20);
+    y += fh + 40;
+  }
+  // 1) misure: nome, provenienza, testo
+  var nome = ($('matNome').value || 'Materia prima').trim(), size = 112, righe;
+  do { x.font = 'italic 600 '+size+'px '+VET.titolo; righe = vetRighe(x, nome, W-220); size -= 4; } while((righe.length > 2 || righe.some(function(r){ return x.measureText(r).width > W-220; })) && size > 56);
+  size += 4;
+  var passoNome = Math.round(size*1.02), hNome = size + (righe.length-1)*passoNome;
+  var prov = ($('matProv').value || '').trim(), hProv = prov ? 62 : 0;
+  var hOrn = 52, testo = ($('caption').value || '').trim();
+  var spazioTesto = fondo - (y + hNome + hProv + hOrn + 70), ts = 26, tr = [], tl = 0;
+  if(testo){
+    for(var s=46; s>=26; s-=2){ x.font = '400 '+s+'px '+VET.testo; tr = vetRighe(x, testo, W-260); tl = Math.round(s*1.42); ts = s; if(tr.length*tl <= spazioTesto) break; }
+  }
+  var hTesto = testo ? tr.length*tl : 60;
+  // 2) senza foto il blocco si centra in verticale; con la foto parte subito sotto
+  var blocco = hNome + hProv + hOrn + 70 + hTesto;
+  y += S.matImg ? 0 : Math.max(0, Math.round((fondo - y - blocco)/2));
+  // 3) disegno
+  x.font = 'italic 600 '+size+'px '+VET.titolo; x.fillStyle = VET.scuro; x.textAlign='center';
+  righe.forEach(function(r,i){ x.fillText(r, W/2, y + size + i*passoNome); });
+  y += hNome; x.textAlign='left';
+  if(prov){ x.fillStyle = VET.tenue; x.font = '500 28px '+VET.testo; vetSpaziato(x, prov.toUpperCase(), W/2, y + 54, 4); y += hProv; }
+  var yo = y + hOrn; x.strokeStyle = VET.verde; x.lineWidth = 2;
+  x.beginPath(); x.moveTo(W/2-90, yo); x.lineTo(W/2-18, yo); x.moveTo(W/2+18, yo); x.lineTo(W/2+90, yo); x.stroke();
+  x.fillStyle = VET.verde; x.beginPath(); x.arc(W/2, yo, 5, 0, Math.PI*2); x.fill();
+  var top = yo + 70;
+  if(testo){
+    x.font = '400 '+ts+'px '+VET.testo; x.fillStyle = VET.scuro; x.textAlign='center';
+    tr.forEach(function(r,i){ x.fillText(r, W/2, top + ts*0.2 + i*tl); }); x.textAlign='left';
+  } else {
+    x.fillStyle = VET.tenue; x.font = '500 34px '+VET.testo; x.textAlign='center';
+    x.fillText('Scrivi la nota e premi "Scrivi il testo"', W/2, top+20); x.textAlign='left';
+  }
+  x.strokeStyle = VET.linea; x.lineWidth = 1.5; x.beginPath(); x.moveTo(W/2-200, 1640); x.lineTo(W/2+200, 1640); x.stroke();
+  x.textAlign='center';
+  x.fillStyle = VET.scuro; x.font = 'italic 600 46px '+VET.titolo; x.fillText('Piazza Roma 16, Frascati', W/2, 1700);
+  x.fillStyle = VET.verde; x.font = '500 22px '+VET.testo; vetSpaziato(x, 'DAL SEME AL CONO', W/2, 1745, 5);
+  x.textAlign='left';
+}
+_fontVetrina.then(function(){ if(S.tipo==='matstoria') disegnaMateria(); });
 function aggiornaVetrina(){
   var attivi = S.gusti.filter(function(g){ return g.a; });
   var quando = $('quando').value ? new Date($('quando').value) : new Date();
   disegnaVetrina($('cv'), attivi, quando);
+  _fontVetrina.then(function(){ disegnaVetrina($('cv'), S.gusti.filter(function(g){ return g.a; }), $('quando').value ? new Date($('quando').value) : new Date()); });
   var m = '';
   if(quando.getDay()===1) m = 'Il lunedì la gelateria è chiusa: controlla la data.';
   msg('quandoMsg', m, 'avviso');
 }
 
 /* ═══ UI CREA ═══ */
-function impostaTipo(t){
+function impostaTipo(t, daMateria){
+  // "Le nostre materie prime" usa i formati post / reel / storia grafica (matstoria)
+  if(t==='materia'){ S.materia = true; t = S.matFormato || 'post'; }
+  else if(!daMateria) S.materia = false;
   S.tipo = t;
-  document.querySelectorAll('.tipo').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.tipo===t ? 'true':'false'); });
-  var vet = t==='vetrina', idea = t==='idea';
+  var premuto = S.materia ? 'materia' : t;
+  document.querySelectorAll('.tipo').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.tipo===premuto ? 'true':'false'); });
+  var vet = t==='vetrina', idea = t==='idea', ms = t==='matstoria';
+  $('materiaBox').style.display = S.materia ? '' : 'none';
+  $('matStoriaBox').style.display = ms ? '' : 'none';
+  sceltaBottoni('matFormato', S.matFormato || 'post');
+  $('nota').placeholder = S.materia
+    ? 'Scrivi qui i fatti: provenienza, produttore, come si coltiva o lavora, perché la scegliamo. L\'AI usa solo questi.'
+    : 'Nota facoltativa per l\'AI: es. edizione limitata fino a domenica, fichi di Labico raccolti ieri';
+  $('nota').rows = S.materia ? 4 : 2;
   $('ideaBox').style.display = idea ? '' : 'none';
   $('quandoBox').style.display = idea ? 'none' : '';
   $('mediaBox').style.display = (vet||idea) ? 'none' : '';
   $('vetrinaBox').style.display = vet ? '' : 'none';
-  $('gustiBox').style.display = (t==='reel'||t==='post'||idea) ? '' : 'none';
-  $('testoBox').style.display = (t==='reel'||t==='post') ? '' : 'none';
-  $('file').accept = t==='reel' ? 'video/*' : t==='post' ? 'image/*' : 'image/*,video/*';
-  $('fileTitolo').textContent = t==='reel' ? 'Carica il video' : t==='post' ? 'Carica la foto' : 'Carica foto o video';
+  $('gustiBox').style.display = ((t==='reel'||t==='post'||idea) && !S.materia) ? '' : 'none';
+  $('testoBox').style.display = (t==='reel'||t==='post'||ms) ? '' : 'none';
+  $('file').accept = t==='reel' ? 'video/*' : (t==='post'||ms) ? 'image/*' : 'image/*,video/*';
+  $('fileTitolo').textContent = t==='reel' ? 'Carica il video' : t==='post' ? 'Carica la foto' : ms ? 'Foto della materia prima (facoltativa)' : 'Carica foto o video';
   resetMedia();
   if(t!=='reel') S.ideaId = null;
   $('quando').value = perInput(orarioProposto(t));
   msg('quandoMsg',''); msg('approvaMsg','');
   if(vet) aggiornaVetrina();
+  if(ms) disegnaMateria();
 }
 function resetMedia(){
-  S.file=null; S.blob=null; S.mediaTipo=null; S.durata=0;
+  S.file=null; S.blob=null; S.mediaTipo=null; S.durata=0; S.matImg=null;
   $('file').value=''; $('anteprima').style.display='none'; $('anteprima').innerHTML=''; msg('mediaMsg','');
 }
 function sceltaFile(f){
@@ -474,6 +627,7 @@ function sceltaFile(f){
   var isVideo = /^video\//.test(f.type), isImg = /^image\//.test(f.type);
   if(S.tipo==='reel' && !isVideo) return msg('mediaMsg','Per un reel serve un video.');
   if(S.tipo==='post' && !isImg) return msg('mediaMsg','Per un post serve una foto.');
+  if(S.tipo==='matstoria' && !isImg) return msg('mediaMsg','Per la storia grafica serve una foto.');
   if(!isVideo && !isImg) return msg('mediaMsg','File non riconosciuto: usa una foto o un video.');
   var box = $('anteprima');
   if(isVideo){
@@ -486,8 +640,9 @@ function sceltaFile(f){
       msg('mediaMsg', d ? 'Durata '+Math.round(d)+' secondi.' : '', 'avviso');
     });
   } else {
-    preparaImmagine(f, S.tipo).then(function(r){
+    preparaImmagine(f, S.tipo==='matstoria' ? 'post' : S.tipo).then(function(r){
       S.file=f; S.blob=r.blob; S.mediaTipo='immagine';
+      if(S.tipo==='matstoria'){ var im = new Image(); im.onload = function(){ S.matImg = im; disegnaMateria(); }; im.src = URL.createObjectURL(r.blob); }
       box.innerHTML = '<img alt="Anteprima" src="'+URL.createObjectURL(r.blob)+'">';
       box.style.display='block';
       msg('mediaMsg', r.ritagliata ? 'Ritagliata al centro in 4:5, il formato verticale di Instagram.' : '', 'avviso');
@@ -534,8 +689,16 @@ function chiamaFunzione(nome, corpo){
 function generaTesto(){
   var b = $('btnGenera'); b.disabled=true; b.textContent='Scrivo…'; msg('testoMsg','');
   var gusti = S.gusti.filter(function(g){ return S.scelti.indexOf(g.n)!==-1; }).map(function(g){ return {n:g.n.replace(/\s*★\s*$/,''), vegan:!!g.vegan}; });
-  chiamaFunzione('generaCaption', {tipo:S.tipo, gusti:gusti, nota:$('nota').value})
-    .then(function(d){ $('caption').value = d.caption; $('caption').style.display='block'; aggiornaConta(); b.textContent='Riscrivi'; })
+  var dati = S.materia
+    ? {tipo: S.tipo==='matstoria' ? 'storia' : S.tipo, tema:'materia', materia:$('matNome').value, nota:$('nota').value}
+    : {tipo:S.tipo, gusti:gusti, nota:$('nota').value};
+  if(S.materia && !$('matNome').value.trim()){ b.disabled=false; b.textContent='Scrivi il testo'; return msg('testoMsg','Scrivi prima il nome della materia prima.'); }
+  if(S.materia && $('nota').value.trim().length < 15){ b.disabled=false; b.textContent='Scrivi il testo'; return msg('testoMsg','Scrivi nella nota provenienza, produttore e perché la scegliamo: l\'AI usa solo questi fatti.'); }
+  chiamaFunzione('generaCaption', dati)
+    .then(function(d){
+      $('caption').value = d.caption; $('caption').style.display='block'; aggiornaConta(); b.textContent='Riscrivi';
+      if(S.tipo==='matstoria'){ if(d.provenienza && !$('matProv').value.trim()) $('matProv').value = d.provenienza; disegnaMateria(); }
+    })
     .catch(function(e){ msg('testoMsg', 'Testo non generato: '+e.message+'. Puoi scriverlo a mano qui sotto.'); $('caption').style.display='block'; b.textContent='Riprova'; })
     .finally(function(){ b.disabled=false; });
 }
@@ -543,7 +706,14 @@ function generaTesto(){
 /* ═══ APPROVA ═══ */
 // Verifica completa prima di salvare: restituisce il primo problema o null.
 function validaContenuto(st, captionTesto, quando, ora){
-  if(st.tipo!=='vetrina' && !st.blob) return st.tipo==='reel' ? 'Carica il video del reel.' : st.tipo==='post' ? 'Carica la foto del post.' : 'Carica la foto o il video della storia.';
+  if(st.materia && !$('matNome').value.trim()) return 'Scrivi il nome della materia prima.';
+  if(st.tipo==='matstoria'){
+    var cs = (captionTesto||'').trim();
+    if(!cs) return 'Manca il testo della storia: premi "Scrivi il testo" o scrivilo a mano.';
+    if(cs.length > 300) return 'Il testo della storia è troppo lungo (massimo 300 caratteri).';
+    if(/artigianal/i.test(cs)) return 'Il testo contiene "artigianale": sostituiscilo con "naturale".';
+  }
+  if(st.tipo!=='vetrina' && st.tipo!=='matstoria' && !st.blob) return st.tipo==='reel' ? 'Carica il video del reel.' : st.tipo==='post' ? 'Carica la foto del post.' : 'Carica la foto o il video della storia.';
   if(st.tipo==='reel' || st.tipo==='post'){
     var c = (captionTesto||'').trim();
     if(!c) return 'Manca il testo: premi "Scrivi il testo" o scrivilo a mano.';
@@ -563,11 +733,13 @@ function approva(){
   msg('approvaMsg','');
   S.invio = true; var b=$('btnApprova'); b.disabled=true; b.textContent='Carico…';
   var ref = db.collection('contenuti').doc();
-  var tipoReale = S.tipo==='vetrina' ? 'storia' : S.tipo;
+  var tipoReale = (S.tipo==='vetrina' || S.tipo==='matstoria') ? 'storia' : S.tipo;
   var prendiBlob = S.tipo==='vetrina'
     ? new Promise(function(ok){ aggiornaVetrina(); $('cv').toBlob(function(bb){ ok(bb); }, 'image/jpeg', 0.92); })
+    : S.tipo==='matstoria'
+    ? new Promise(function(ok){ disegnaMateria(); $('cvMat').toBlob(function(bb){ ok(bb); }, 'image/jpeg', 0.92); })
     : Promise.resolve(S.blob);
-  var mediaTipo = S.tipo==='vetrina' ? 'immagine' : S.mediaTipo;
+  var mediaTipo = (S.tipo==='vetrina' || S.tipo==='matstoria') ? 'immagine' : S.mediaTipo;
   prendiBlob.then(function(blob){
     var est = mediaTipo==='immagine' ? 'jpg' : (/quicktime/.test(blob.type) ? 'mov' : 'mp4');
     var path = 'contenuti/'+ref.id+'.'+est;
@@ -581,6 +753,7 @@ function approva(){
         caption: (tipoReale==='reel'||tipoReale==='post') ? $('caption').value.trim() : '',
         gusti: S.tipo==='vetrina' ? S.gusti.filter(function(g){return g.a;}).map(function(g){return g.n;}) : S.scelti.slice(),
         nota: $('nota').value.trim(),
+        materia: S.materia ? $('matNome').value.trim() : null,
         programmataPer: firebase.firestore.Timestamp.fromDate(quando),
         stato: 'approvato', inLavorazione: false,
         creato: firebase.firestore.FieldValue.serverTimestamp(), creatoDa: S.utente.email
@@ -590,7 +763,8 @@ function approva(){
     if(S.ideaId && tipoReale==='reel'){ db.collection('contenuti').doc(S.ideaId).update({stato:'usata'}).catch(function(){}); S.ideaId=null; }
     toast('Programmato: '+quando.toLocaleString('it-IT',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));
     S.scelti=[]; renderGusti(); $('nota').value=''; $('caption').value=''; $('caption').style.display='none'; $('btnGenera').textContent='Scrivi il testo';
-    impostaTipo(S.tipo); aggiornaConta();
+    if(S.materia){ $('matNome').value=''; $('matProv').value=''; }
+    impostaTipo(S.materia ? 'materia' : S.tipo); aggiornaConta();
   }).catch(function(err){
     msg('approvaMsg', 'Non salvato: '+err.message);
   }).finally(function(){
@@ -863,6 +1037,8 @@ function avvia(){
   $('btnApprova').onclick = approva;
   $('btnCollega').onclick = collega;
   $('btnOauth').onclick = avviaOauth;
+  $('matFormato').onclick = function(e){ var b=e.target.closest('button'); if(!b) return; S.matFormato=b.dataset.v; impostaTipo('materia'); };
+  ['matNome','matProv','caption'].forEach(function(id){ $(id).addEventListener('input', function(){ if(S.tipo==='matstoria') disegnaMateria(); }); });
   $('ideaFormato').onclick = function(e){ var b=e.target.closest('button'); if(!b) return; S.formato=b.dataset.v; sceltaBottoni('ideaFormato', S.formato); };
   $('ideaDurata').onclick = function(e){ var b=e.target.closest('button'); if(!b) return; S.durataReel=+b.dataset.v; sceltaBottoni('ideaDurata', S.durataReel); };
   $('btnAgganci').onclick = chiediAgganci;
