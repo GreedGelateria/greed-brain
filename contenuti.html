@@ -406,11 +406,7 @@ function righeTesto(x, testo, maxW){
 var VET = { crema:'#FBF7EF', scuro:'#22381F', verde:'#5C7A4A', tenue:'#7C8C70', linea:'#C9D3BE',
   titolo:'"Cormorant Garamond", Georgia, serif', testo:'Outfit, system-ui, sans-serif' };
 function vetSpaziato(x, testo, cx, y, spazio){
-  // Spaziatura tra le lettere: nativa nel browser (più precisa), a mano dove non c'è
-  if('letterSpacing' in x){
-    x.letterSpacing = spazio+'px'; var w = x.measureText(testo).width - spazio;
-    x.fillText(testo, cx - w/2, y); x.letterSpacing = '0px'; return w;
-  }
+  // Disegna sempre carattere per carattere per evitare che letterSpacing sposti il punto di partenza
   var chars = Array.from(testo), larg = chars.reduce(function(s,c){ return s + x.measureText(c).width; },0) + spazio*(chars.length-1);
   var px = cx - larg/2;
   chars.forEach(function(c){ x.fillText(c, px, y); px += x.measureText(c).width + spazio; });
@@ -503,7 +499,9 @@ function disegnaVetrina(cv, gusti, data){
   x.strokeStyle = VET.linea; x.lineWidth = 1.5; x.beginPath(); x.moveTo(W/2-200, 1640); x.lineTo(W/2+200, 1640); x.stroke();
   x.textAlign='center';
   x.fillStyle = VET.scuro; x.font = 'italic 600 46px '+VET.titolo; x.fillText('Piazza Roma 16, Frascati', W/2, 1700);
-  x.fillStyle = VET.verde; x.font = '500 22px '+VET.testo; vetSpaziato(x, 'SENZA GLUTINE · CERTIFICAZIONE AIC DAL 2004', W/2, 1745, 3);
+  x.fillStyle = VET.verde; x.font = '500 17px '+VET.testo; x.textAlign = 'center';
+  x.fillText('SENZA GLUTINE  ·  CERTIFICAZIONE AIC DAL 2004', W/2, 1750);
+  x.textAlign = 'left';
   x.textAlign='left';
 }
 // Logo facoltativo: se nella cartella di Brain c'è logo_greed.png viene messo in testa alla storia
