@@ -283,7 +283,7 @@ const MAGC = {
   numChiave(s){ const g = String(s||'').match(/\d+/g) || []; const best = g.sort((a,b) => b.replace(/^0+/,'').length - a.replace(/^0+/,'').length)[0] || ''; return best.replace(/^0+(?=\d)/,''); },
 };
 
-const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
+const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", authDomain:"club-greed.firebaseapp.com", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
 const app = initializeApp(FB, 'ddt-loader');
 const db  = getFirestore(app);
 await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
