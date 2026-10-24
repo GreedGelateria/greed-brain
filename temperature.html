@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registro temperature — GREED Brain</title>
+<style>
+  :root{ --verde:#2d4a22; --verde2:#4a6b34; --linea:#dfe6d8; --muted:#6b7a63; --bg:#f6f8f4; --rosso:#b23a2b; --arancio:#c9822b; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; background:var(--bg); color:#1f2a1a; }
+  header{ background:var(--verde); color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  header a{ color:#fff; opacity:.85; text-decoration:none; font-size:14px; }
+  h1{ font-size:19px; margin:0; }
+  main{ max-width:1100px; margin:0 auto; padding:16px; }
+  .barra{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; background:#fff; border:1px solid var(--linea); border-radius:12px; padding:14px; margin-bottom:14px; }
+  .barra label{ font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:4px; }
+  select,input[type=month]{ padding:9px 10px; border:1px solid var(--linea); border-radius:8px; font-size:15px; background:#fff; }
+  button{ padding:10px 14px; border:none; border-radius:9px; background:var(--verde2); color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
+  button.chiaro{ background:#fff; color:var(--verde); border:1px solid var(--verde2); }
+  .stato{ font-size:14px; color:var(--muted); margin:6px 2px 14px; }
+  .sonda{ background:#fff; border:1px solid var(--linea); border-radius:12px; padding:16px; margin-bottom:16px; page-break-inside:avoid; }
+  .sonda h2{ font-size:17px; margin:0 0 4px; color:var(--verde); }
+  .limiti{ font-size:12px; color:var(--muted); margin-bottom:10px; }
+  .kpi{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin:10px 0 14px; }
+  .kpi div{ background:var(--bg); border-radius:8px; padding:8px 10px; font-size:12px; color:var(--muted); }
+  .kpi b{ display:block; font-size:18px; color:#1f2a1a; }
+  svg{ width:100%; height:auto; display:block; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; margin-top:10px; }
+  th,td{ padding:6px 8px; border-bottom:1px solid var(--linea); text-align:right; }
+  th:first-child,td:first-child{ text-align:left; }
+  th{ background:var(--verde); color:#fff; font-weight:600; font-size:12px; }
+  .ok{ color:var(--verde2); font-weight:600; } .att{ color:var(--arancio); font-weight:700; } .err{ color:var(--rosso); font-weight:700; }
+  details{ margin-top:10px; } summary{ cursor:pointer; color:var(--verde2); font-size:13px; }
+  .intestazione-stampa{ display:none; }
+  .firma{ display:none; }
+  @media print{
+    header,.barra,.stato,.no-print{ display:none !important; }
+    body{ background:#fff; } main{ padding:0; max-width:none; }
+    .sonda{ border:none; padding:0 0 10px; }
+    .intestazione-stampa{ display:block; border-bottom:2px solid var(--verde); padding-bottom:8px; margin-bottom:14px; font-size:12px; }
+    .intestazione-stampa b{ font-size:16px; color:var(--verde); }
+    .firma{ display:block; margin-top:30px; font-size:12px; }
+    details{ display:block; } details[open] summary{ display:none; }
+    th{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌡️ Registro temperature</h1>
+  <a href="index.html">← Dashboard</a>
+</header>
+<main>
+  <div class="barra">
+    <label>Apparecchio
+      <select id="sonda"></select>
+    </label>
+    <label>Mese
+      <input type="month" id="mese">
+    </label>
+    <label style="flex-direction:row;align-items:center;gap:6px;font-size:13px;color:#1f2a1a">
+      <input type="checkbox" id="tutteLetture"> Nel PDF anche tutte le letture
+    </label>
+    <button id="carica">Mostra</button>
+    <button class="chiaro" id="csv">⬇ CSV</button>
+    <button class="chiaro" id="pdf">🖨 PDF / Stampa</button>
+  </div>
+  <div class="stato" id="stato">Scegli apparecchio e mese, poi premi Mostra.</div>
+
+  <div class="intestazione-stampa" id="intestazione"></div>
+  <div id="risultati"></div>
+  <div class="firma">Firma del responsabile HACCP: ______________________________ &nbsp;&nbsp; Data: ____________</div>
+</main>
+
+<script type="module">
+import { richiediAccesso } from './accesso.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, getDocs, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
+const app = initializeApp(FB, 'temperature');
+const db = getFirestore(app);
+await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
+
+// Stessi limiti della dashboard: sopra "max" = attenzione, sopra "alert" = fuori limite
+const SENSORI = [
+  { id:'armadio_neg_gelateria', nome:'Armadio − Gelateria', min:-11, max:-7,  alert:-5  },
+  { id:'armadio_pos_gelateria', nome:'Armadio + Gelateria', min:1,   max:5,   alert:6   },
+  { id:'armadio_pos_lab',       nome:'Armadio + Laboratorio', min:1, max:5,   alert:6   },
+  { id:'banco_gelati',          nome:'Banco Gelati',        min:-12, max:-9,  alert:-8  },
+  { id:'vetrina_semifreddi',    nome:'Vetrina Semifreddi',  min:-25, max:-16, alert:-14 },
+];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const f1 = n => (Math.round(n*10)/10).toFixed(1).replace('.', ',');
+const pad = n => String(n).padStart(2,'0');
+const giornoIt = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+const oraIt = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const stato = (s, v) => v > s.alert ? 'err' : v > s.max ? 'att' : 'ok';
+const ETICHETTA = { ok:'✓ nei limiti', att:'⚠ attenzione', err:'✗ fuori limite' };
+
+$('sonda').innerHTML = '<option value="tutte">Tutti gli apparecchi</option>' + SENSORI.map(s => `<option value="${s.id}">${esc(s.nome)}</option>`).join('');
+const oggi = new Date();
+$('mese').value = `${oggi.getFullYear()}-${pad(oggi.getMonth()+1)}`;
+
+let ultimo = null; // { mese, dati:[{s, letture:[{d, v, u}]}] }
+
+async function leggi(s, inizio, fine) {
+  const q = query(collection(db, 'sensori', s.id, 'storico'), where('ts', '>=', inizio.getTime()), where('ts', '<', fine.getTime()), orderBy('ts'));
+  const snap = await getDocs(q);
+  const out = [];
+  snap.forEach(d => { const x = d.data(); if (typeof x.valore === 'number') out.push({ d: new Date(x.ts), v: x.valore, u: x.umidita }); });
+  return out;
+}
+
+function grafico(s, letture, inizio, fine) {
+  if (!letture.length) return '';
+  const W = 1000, H = 260, ml = 44, mr = 10, mt = 12, mb = 26;
+  const vals = letture.map(l => l.v);
+  let lo = Math.min(...vals, s.min) - 1, hi = Math.max(...vals, s.alert) + 1;
+  const X = t => ml + (t - inizio.getTime()) / (fine.getTime() - inizio.getTime()) * (W - ml - mr);
+  const Y = v => mt + (hi - v) / (hi - lo) * (H - mt - mb);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento temperature ${esc(s.nome)}">`;
+  // fascia dei limiti
+  svg += `<rect x="${ml}" y="${Y(s.max)}" width="${W-ml-mr}" height="${Y(s.min)-Y(s.max)}" fill="#e7f0df"/>`;
+  svg += `<line x1="${ml}" x2="${W-mr}" y1="${Y(s.alert)}" y2="${Y(s.alert)}" stroke="#b23a2b" stroke-dasharray="5 4"/>`;
+  svg += `<text x="${W-mr}" y="${Y(s.alert)-4}" font-size="11" fill="#b23a2b" text-anchor="end">limite ${f1(s.alert)}°</text>`;
+  // asse y
+  const passo = (hi - lo) > 12 ? 4 : 2;
+  for (let v = Math.ceil(lo/passo)*passo; v <= hi; v += passo) {
+    svg += `<line x1="${ml}" x2="${W-mr}" y1="${Y(v)}" y2="${Y(v)}" stroke="#eef1ea"/><text x="${ml-6}" y="${Y(v)+4}" font-size="11" fill="#6b7a63" text-anchor="end">${v}°</text>`;
+  }
+  // asse x: un'etichetta ogni 5 giorni
+  for (let d = new Date(inizio); d < fine; d.setDate(d.getDate()+1)) {
+    if (d.getDate() === 1 || d.getDate() % 5 === 0) svg += `<text x="${X(d.getTime())}" y="${H-8}" font-size="11" fill="#6b7a63" text-anchor="middle">${d.getDate()}</text>`;
+  }
+  // linea delle letture (interrotta dove mancano dati per più di 2 ore)
+  let pezzi = [], pezzo = [];
+  letture.forEach((l, i) => {
+    if (i && l.d - letture[i-1].d > 2*3600e3) { pezzi.push(pezzo); pezzo = []; }
+    pezzo.push(`${X(l.d.getTime()).toFixed(1)},${Y(l.v).toFixed(1)}`);
+  });
+  pezzi.push(pezzo);
+  pezzi.forEach(p => { if (p.length) svg += `<polyline points="${p.join(' ')}" fill="none" stroke="#4a6b34" stroke-width="1.4"/>`; });
+  letture.filter(l => l.v > s.alert).forEach(l => { svg += `<circle cx="${X(l.d.getTime())}" cy="${Y(l.v)}" r="3" fill="#b23a2b"/>`; });
+  return svg + '</svg>';
+}
+
+function sezione(s, letture, inizio, fine) {
+  const giorni = {};
+  letture.forEach(l => { const k = giornoIt(l.d); (giorni[k] = giorni[k] || []).push(l); });
+  const vals = letture.map(l => l.v);
+  const fuori = letture.filter(l => l.v > s.alert).length, att = letture.filter(l => l.v > s.max && l.v <= s.alert).length;
+  const ndays = Math.round((Math.min(fine, new Date()) - inizio) / 86400000);
+  const attese = Math.max(1, ndays * 48);
+  let lacune = 0;
+  letture.forEach((l, i) => { if (i && l.d - letture[i-1].d > 2*3600e3) lacune++; });
+  let h = `<div class="sonda"><h2>${esc(s.nome)}</h2>
+    <div class="limiti">Limiti: da ${f1(s.min)}° a ${f1(s.max)}° · fuori limite sopra ${f1(s.alert)}° · una lettura ogni 30 minuti (sonda X-Sense)</div>`;
+  if (!letture.length) return h + '<div class="limiti">Nessuna lettura registrata in questo mese.</div></div>';
+  h += `<div class="kpi">
+    <div>Letture<b>${letture.length}</b>${Math.min(100, Math.round(letture.length/attese*100))}% del previsto</div>
+    <div>Minima<b>${f1(Math.min(...vals))}°</b></div>
+    <div>Massima<b>${f1(Math.max(...vals))}°</b></div>
+    <div>Media<b>${f1(vals.reduce((a,b)=>a+b,0)/vals.length)}°</b></div>
+    <div>Fuori limite<b class="${fuori?'err':'ok'}">${fuori}</b>${att} in attenzione</div>
+    <div>Interruzioni &gt; 2 h<b class="${lacune?'att':'ok'}">${lacune}</b></div>
+  </div>`;
+  h += grafico(s, letture, inizio, fine);
+  h += `<table><thead><tr><th>Giorno</th><th>Minima</th><th>Massima</th><th>Media</th><th>Letture</th><th>Esito</th></tr></thead><tbody>`;
+  Object.entries(giorni).forEach(([k, l]) => {
+    const v = l.map(x => x.v), mx = Math.max(...v), st = stato(s, mx);
+    h += `<tr><td>${k}</td><td>${f1(Math.min(...v))}°</td><td>${f1(mx)}°</td><td>${f1(v.reduce((a,b)=>a+b,0)/v.length)}°</td><td>${l.length}</td><td class="${st}">${ETICHETTA[st]}</td></tr>`;
+  });
+  h += '</tbody></table>';
+  h += `<details class="tutte" ${$('tutteLetture').checked ? 'open' : ''}><summary>Tutte le ${letture.length} letture</summary><table><thead><tr><th>Data</th><th>Ora</th><th>Temperatura</th><th>Umidità</th><th>Esito</th></tr></thead><tbody>`
+    + letture.map(l => { const st = stato(s, l.v); return `<tr><td>${giornoIt(l.d)}</td><td>${oraIt(l.d)}</td><td>${f1(l.v)}°</td><td>${l.u != null ? Math.round(l.u)+'%' : '—'}</td><td class="${st}">${ETICHETTA[st]}</td></tr>`; }).join('')
+    + '</tbody></table></details></div>';
+  return h;
+}
+
+async function carica() {
+  const [y, m] = $('mese').value.split('-').map(Number);
+  if (!y || !m) return;
+  const inizio = new Date(y, m-1, 1), fine = new Date(y, m, 1);
+  const scelte = $('sonda').value === 'tutte' ? SENSORI : SENSORI.filter(s => s.id === $('sonda').value);
+  $('stato').textContent = '⏳ Carico le letture…';
+  $('risultati').innerHTML = '';
+  try {
+    const dati = [];
+    for (const s of scelte) dati.push({ s, letture: await leggi(s, inizio, fine) });
+    ultimo = { y, m, dati };
+    const nomeMese = inizio.toLocaleDateString('it-IT', { month:'long', year:'numeric' });
+    $('intestazione').innerHTML = `<b>GREED Srl — Registro temperature HACCP</b><br>Gelateria Naturale, Piazza Roma 16, Frascati · P.IVA 16745501003<br>Periodo: ${esc(nomeMese)} · Generato il ${giornoIt(new Date())} alle ${oraIt(new Date())} · Fonte: sonde X-Sense, una lettura ogni 30 minuti`;
+    $('risultati').innerHTML = dati.map(x => sezione(x.s, x.letture, inizio, fine)).join('');
+    const tot = dati.reduce((a, x) => a + x.letture.length, 0);
+    $('stato').textContent = tot ? `${tot} letture di ${nomeMese}.` : `Nessuna lettura per ${nomeMese}.`;
+  } catch (e) {
+    $('stato').textContent = 'Errore nel caricamento: ' + e.message;
+  }
+}
+
+function csv() {
+  if (!ultimo) return alert('Premi prima "Mostra".');
+  const righe = [['Apparecchio','Data','Ora','Temperatura (°C)','Umidità (%)','Esito']];
+  ultimo.dati.forEach(({ s, letture }) => letture.forEach(l => righe.push([s.nome, giornoIt(l.d), oraIt(l.d), f1(l.v), l.u != null ? Math.round(l.u) : '', ETICHETTA[stato(s, l.v)]])));
+  const testo = '\ufeff' + righe.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([testo], { type:'text/csv;charset=utf-8' }));
+  a.download = `GREED_temperature_${ultimo.y}-${pad(ultimo.m)}.csv`;
+  a.click();
+}
+
+$('carica').onclick = carica;
+$('csv').onclick = csv;
+$('pdf').onclick = () => {
+  if (!ultimo) return alert('Premi prima "Mostra".');
+  document.querySelectorAll('details.tutte').forEach(d => { d.open = $('tutteLetture').checked; d.style.display = $('tutteLetture').checked ? '' : 'none'; });
+  window.print();
+  document.querySelectorAll('details.tutte').forEach(d => { d.style.display = ''; });
+};
+carica();
+</script>
+</body>
+</html>
