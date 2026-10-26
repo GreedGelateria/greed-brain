@@ -62,7 +62,7 @@
     </div>
     <button class="invia" id="invia" disabled>Stampa</button>
     <div class="esito" id="esito" role="status"></div>
-    <div class="nota">Le emoji non si stampano e vengono tolte. La stampa parte entro pochi secondi; se la stampante è spenta, il biglietto viene scartato dopo 5 minuti.</div>
+    <div class="nota">Le emoji non si stampano e vengono tolte. La stampa parte subito dalla stampante collegata al tablet.</div>
   </section>
   <section class="anteprima">
     <h2>Anteprima</h2>
@@ -70,16 +70,16 @@
   </section>
 </main>
 
+<script>
+// Aperta come file (da mail, download…) non può usare la stampante: il permesso USB vale solo sul sito.
+if (location.hostname !== 'greedgelateria.github.io') {
+  document.querySelector('main').innerHTML = '<section class="pannello" style="grid-column:1/-1;font-size:17px;line-height:1.5">'
+    + '<b>Questa pagina funziona solo dal Brain.</b><br>Caricala su GitHub e aprila da qui:<br>'
+    + '<a href="https://greedgelateria.github.io/greed-brain/stampa.html">https://greedgelateria.github.io/greed-brain/stampa.html</a></section>';
+}
+</script>
 <script type="module">
-import { richiediAccesso } from './accesso.js';
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, doc, setDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-
-const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", authDomain:"club-greed.firebaseapp.com", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
-const app = initializeApp(FB, 'stampa');
-const db = getFirestore(app);
-await richiediAccesso(app); // stesso login Google delle altre pagine del Brain
-
+// Stampa diretta sulla Epson TM-m30III collegata via USB al tablet (stesso metodo della app Tablet).
 const $ = id => document.getElementById(id);
 const scelte = { dim:'grande', all:'centro', int:'si' }; // predefiniti decisi da Dario
 
@@ -87,42 +87,74 @@ const scelte = { dim:'grande', all:'centro', int:'si' }; // predefiniti decisi d
 const pulisci = t => String(t || '')
   .replace(/\r\n?/g, '\n')
   .replace(/[‘’]/g, "'").replace(/[“”«»]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/€/g, 'EUR')
-  .replace(/[^\n\x20-\x7E\u00A0-\u00FF]/g, '')   // solo caratteri latini (accenti compresi)
+  .replace(/[^\n\x20-\x7E\u00A0-\u00FF]/g, '')
   .replace(/ {2,}/g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n{4,}/g, '\n\n\n').trim();
-const xmlEsc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const htmlEsc = xmlEsc;
+const htmlEsc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-// ── XML ePOS per la TM-m30III (stesso formato di printerJobHandler) ──
-function costruisciXml(jobId, testo, o) {
-  const al = o.all === 'centro' ? 'center' : 'left';
+// Stessa tabella CP858 della app Tablet (accentate corrette)
+function cp858(s) {
+  const map = { 'à':0x85,'è':0x8A,'é':0x82,'ì':0x8D,'ò':0x95,'ù':0x97,'À':0xB7,'È':0xD4,'É':0x90,'Ì':0xDE,'Ò':0xE3,'Ù':0xEB,
+    'ä':0x84,'ë':0x89,'ï':0x8B,'ö':0x94,'ü':0x81,'Ä':0x8E,'Ë':0xD3,'Ï':0xD8,'Ö':0x99,'Ü':0x9A,'ñ':0xA4,'Ñ':0xA5,'ç':0x87,'Ç':0x80,'·':0xF9 };
+  const out = [];
+  for (const ch of s) out.push(map[ch] !== undefined ? map[ch] : ch.charCodeAt(0) < 128 ? ch.charCodeAt(0) : 0x3F);
+  return new Uint8Array(out);
+}
+
+// A capo tra le parole: 48 caratteri per riga in normale, 24 in grande (carta 80 mm)
+function aCapo(testo, colonne) {
+  return testo.split('\n').map(riga => {
+    const out = []; let r = '';
+    for (const p of riga.split(' ')) {
+      let parola = p;
+      while (parola.length > colonne) { if (r) { out.push(r); r = ''; } out.push(parola.slice(0, colonne)); parola = parola.slice(colonne); }
+      if (!r) r = parola; else if ((r + ' ' + parola).length <= colonne) r += ' ' + parola; else { out.push(r); r = parola; }
+    }
+    out.push(r); return out.join('\n');
+  }).join('\n');
+}
+
+function costruisciEscPos(testo, o) {
+  const chunks = [];
+  const cmd = (...b) => chunks.push(new Uint8Array(b));
+  const txt = s => chunks.push(cp858(s));
   const grande = o.dim === 'grande';
-  let corpo = '';
-  if (o.int === 'si') {
-    corpo += `<text align="center" em="true" dw="true" dh="true">GREED\n</text>
-        <text align="center" em="false" dw="false" dh="false">Gelateria Naturale - Frascati\n</text>
-        <text align="center">--------------------------------\n</text>
-        <feed line="1"/>`;
+  for (let c = 0; c < o.copie; c++) {
+    cmd(0x1B, 0x40);                                  // init
+    if (o.int === 'si') {
+      cmd(0x1B, 0x61, 0x01); cmd(0x1D, 0x21, 0x11); txt('GREED\n');
+      cmd(0x1D, 0x21, 0x00); txt('Gelateria Naturale - Frascati\n');
+      txt('--------------------------------\n\n');
+    }
+    cmd(0x1B, 0x61, o.all === 'centro' ? 0x01 : 0x00);
+    if (grande) { cmd(0x1D, 0x21, 0x11); cmd(0x1B, 0x45, 0x01); }
+    txt(aCapo(testo, grande ? 24 : 48) + '\n');
+    cmd(0x1D, 0x21, 0x00); cmd(0x1B, 0x45, 0x00);
+    txt('\n\n\n');
+    cmd(0x1D, 0x56, 0x41, 0x03);                      // taglio
   }
-  corpo += `<text align="${al}" em="${grande}" dw="${grande}" dh="${grande}">${xmlEsc(testo)}\n</text>
-        <text em="false" dw="false" dh="false"/>
-        <feed line="4"/>
-        <cut type="feed"/>`;
-  const copie = Math.max(1, Math.min(5, o.copie|0));
-  return `<?xml version="1.0" encoding="utf-8"?>
-<PrintRequestInfo Version="2.00">
-  <ePOSPrint>
-    <Parameter>
-      <devid>local_printer</devid>
-      <timeout>10000</timeout>
-      <printjobid>${jobId}</printjobid>
-    </Parameter>
-    <PrintData>
-      <epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">
-        ${Array(copie).fill(corpo).join('\n        ')}
-      </epos-print>
-    </PrintData>
-  </ePOSPrint>
-</PrintRequestInfo>`;
+  const out = new Uint8Array(chunks.reduce((s, c) => s + c.length, 0));
+  let off = 0; chunks.forEach(c => { out.set(c, off); off += c.length; });
+  return out;
+}
+
+// ── USB: apro, stampo e rilascio subito, così la stampante resta libera per la app Tablet ──
+async function stampaUSB(bytes, chiediSeServe) {
+  if (!navigator.usb) throw new Error('Questo browser non supporta la stampa USB: usa Chrome sul tablet.');
+  let dev = (await navigator.usb.getDevices()).find(d => d.vendorId === 0x04b8);
+  if (!dev && chiediSeServe) dev = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x04b8 }] });
+  if (!dev) return 'manca';
+  try {
+    if (!dev.opened) await dev.open();
+    if (dev.configuration === null) await dev.selectConfiguration(1);
+    try { await dev.claimInterface(0); }
+    catch (e) { throw new Error('La stampante è occupata dalla app Tablet aperta in un\'altra scheda: chiudi quella scheda e riprova.'); }
+    const ep = dev.configuration.interfaces[0].alternate.endpoints.find(e => e.direction === 'out');
+    await dev.transferOut(ep.endpointNumber, bytes);
+    return 'ok';
+  } finally {
+    try { await dev.releaseInterface(0); } catch (e) {}
+    try { await dev.close(); } catch (e) {}
+  }
 }
 
 // ── Interfaccia ──
@@ -137,10 +169,11 @@ document.querySelectorAll('.seg').forEach(g => {
 
 function anteprima() {
   const t = pulisci($('testo').value);
-  const cls = (scelte.all === 'centro' ? 'c ' : '') + (scelte.dim === 'grande' ? 'g' : '');
+  const grande = scelte.dim === 'grande';
+  const cls = (scelte.all === 'centro' ? 'c ' : '') + (grande ? 'g' : '');
   let h = '';
   if (scelte.int === 'si') h += '<div class="c g">GREED</div><div class="c">Gelateria Naturale - Frascati</div><div class="tratto"></div>';
-  h += t ? `<div class="riga ${cls}">${htmlEsc(t)}</div>` : '<div class="riga c vuoto">Il testo comparirà qui</div>';
+  h += t ? `<div class="riga ${cls}">${htmlEsc(aCapo(t, grande ? 24 : 48))}</div>` : '<div class="riga c vuoto">Il testo comparirà qui</div>';
   $('anteprima').innerHTML = h;
   $('invia').disabled = !t;
 }
@@ -150,29 +183,18 @@ anteprima();
 $('invia').onclick = async () => {
   const testo = pulisci($('testo').value);
   if (!testo) return;
-  const ref = doc(collection(db, 'print_jobs'));
   const copie = +$('copie').value;
   $('invia').disabled = true;
-  $('esito').className = 'esito'; $('esito').textContent = '⏳ Invio alla stampante…';
+  $('esito').className = 'esito'; $('esito').textContent = '⏳ Stampo…';
   try {
-    await setDoc(ref, { tipo:'testo_libero', stampato:false, createdAt:serverTimestamp(), _rawXml: costruisciXml(ref.id, testo, { ...scelte, copie }) });
-    $('esito').textContent = '⏳ Inviato, attendo la stampante…';
-    // La stampante, quando prende il biglietto, lo toglie dalla coda: così so che è stato stampato.
-    let fatto = false;
-    const timer = setTimeout(() => { if (!fatto) { stop(); $('esito').className = 'esito err'; $('esito').textContent = 'La stampante non risponde da 60 secondi: controlla che sia accesa e collegata. Il biglietto resta in coda per 5 minuti.'; $('invia').disabled = false; } }, 60000);
-    const stop = onSnapshot(ref, s => {
-      if (s.exists()) return;
-      fatto = true; clearTimeout(timer); stop();
-      $('esito').className = 'esito ok'; $('esito').textContent = `✓ Stampato${copie > 1 ? ` (${copie} copie)` : ''}`;
-      $('invia').disabled = false;
-    }, () => { // lettura non consentita: l'invio è comunque riuscito
-      clearTimeout(timer); $('esito').className = 'esito ok'; $('esito').textContent = '✓ Inviato alla stampante'; $('invia').disabled = false;
-    });
+    const r = await stampaUSB(costruisciEscPos(testo, { ...scelte, copie }), true);
+    if (r === 'manca') throw new Error('Stampante non trovata: controlla il cavo USB e riprova.');
+    $('esito').className = 'esito ok'; $('esito').textContent = `✓ Stampato${copie > 1 ? ` (${copie} copie)` : ''}`;
   } catch (e) {
     $('esito').className = 'esito err';
-    $('esito').textContent = 'Invio non riuscito: ' + e.message;
-    $('invia').disabled = false;
+    $('esito').textContent = e.name === 'NotFoundError' ? 'Nessuna stampante scelta.' : e.message;
   }
+  $('invia').disabled = false;
 };
 </script>
 </body>
