@@ -588,9 +588,13 @@ window.conferma = async function() {
       await setDoc(doc(db, 'magazzino', key), datiMag, { merge: true });
 
       const storicoId = `${key}_${data}_${Date.now()}`;
+      // Il prezzo scritto sul DDT è per l'unità della riga (kg, L o pezzo/sacco): lo riporto al kg
+      const prezzoKg = !(+r.prezzo > 0) ? null
+        : (r.unita === 'kg' || r.unita === 'L') ? +r.prezzo
+        : (r.unita === 'pz' && +r.gPerPezzo > 0) ? Math.round(+r.prezzo / (+r.gPerPezzo / 1000) * 10000) / 10000 : null;
       await setDoc(doc(db, 'acquistiStorico', storicoId), {
         ingrediente: r.nome, descrizioneFornitore: r.nomeOriginale || '', fornitore, lotto: lottoRiga, lottoDaVerificare: !lottoRiga, data, numero,
-        quantita: r.g / 1000, unita: 'kg', prezzo: r.prezzo, _ts: Date.now()
+        quantita: r.g / 1000, unita: 'kg', prezzo: r.prezzo, prezzoRiga: +r.prezzo || 0, unitaRiga: r.unita || '', prezzoKg, _fonte: 'ddt', _ts: Date.now()
       });
 
       if (r.nomeOriginale) {
