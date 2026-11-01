@@ -1,0 +1,43 @@
+<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Accessi al laboratorio — GREED Brain</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+:root{--verde:#1f3a1a;--crema:#f5efe2;--rosso:#b33a2b}
+body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:var(--crema);color:#222}
+header{background:var(--verde);color:var(--crema);padding:16px 20px;font-size:18px;letter-spacing:.04em}
+main{max-width:760px;margin:0 auto;padding:20px}
+button{background:var(--verde);color:#fff;border:0;padding:11px 20px;border-radius:8px;font-size:15px;cursor:pointer}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;margin-top:14px}
+td,th{padding:9px 12px;border-bottom:1px solid #eee;text-align:left;font-size:14px}
+th{background:#eef2ea;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.allarme td{color:var(--rosso);font-weight:600}
+p.nota{font-size:13px;color:#555;line-height:1.5}
+</style></head><body>
+<header>🔐 GREED Brain · Accessi come Dario al gestionale del laboratorio</header>
+<main>
+<p class="nota">Ogni volta che qualcuno entra nel gestionale con il PIN di Dario resta una riga qui, insieme ai PIN errati e ai cambi di PIN. Nessuno può modificare o cancellare questo registro. Se vedi un accesso in un momento in cui non eri in laboratorio, cambia subito il PIN.</p>
+<div id="stato"><button onclick="accedi()">Accedi con l'account di Dario</button></div>
+<div id="tab"></div>
+</main>
+<script>
+firebase.initializeApp({apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4",authDomain:"club-greed.firebaseapp.com",projectId:"club-greed",
+  storageBucket:"club-greed.firebasestorage.app",messagingSenderId:"704669833762",appId:"1:704669833762:web:917f4c7b104bc8ad39087b"});
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function accedi(){ firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>alert(e.message)); }
+firebase.auth().onAuthStateChanged(async u=>{
+  const st=document.getElementById('stato');
+  if(!u) return;
+  if(u.email!=='gelateriagreed@gmail.com'){ st.innerHTML='❌ Questa pagina si apre solo con l\'account di Dario.'; firebase.auth().signOut(); return; }
+  st.innerHTML='Collegato come '+esc(u.email)+' · <a href="#" onclick="firebase.auth().signOut();location.reload()">Esci</a>';
+  try{
+    const s=await firebase.firestore().collection('accessi_lab').orderBy('ts','desc').limit(100).get();
+    if(s.empty){ document.getElementById('tab').innerHTML='<p class="nota">Nessun accesso registrato finora.</p>'; return; }
+    let h='<table><tr><th>Quando</th><th>Cosa</th><th>Postazione</th></tr>';
+    s.forEach(d=>{ const a=d.data(); const allarme=/errat/.test(a.esito||'');
+      h+=`<tr class="${allarme?'allarme':''}"><td>${esc(a.data||new Date(a.ts).toLocaleString('it-IT'))}</td><td>${allarme?'⚠️ ':''}${esc(a.esito)}</td><td>${esc(a.postazione)}</td></tr>`; });
+    document.getElementById('tab').innerHTML=h+'</table>';
+  }catch(e){ document.getElementById('tab').innerHTML='<p class="nota">Errore: '+esc(e.message)+'</p>'; }
+});
+</script></body></html>
