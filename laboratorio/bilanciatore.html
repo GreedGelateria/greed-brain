@@ -2792,10 +2792,11 @@ function accediGoogle(){
   const m=document.getElementById('google-msg');
   if(location.protocol==='file:'){ m.textContent='Apri il bilanciatore dall\'indirizzo online (greedgelateria.github.io/greed-brain/laboratorio/bilanciatore.html), non come file.'; return; }
   m.textContent='';
-  _algsGetDb(); firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>{ m.textContent='Accesso non riuscito: '+e.message; });
+  const prov=new firebase.auth.GoogleAuthProvider(); prov.setCustomParameters({prompt:'select_account'});
+  _bilAuth().signInWithPopup(prov).catch(e=>{ m.textContent= e.code==='auth/popup-blocked' ? 'Chrome ha bloccato la finestra di accesso: consenti i popup per questo sito e riprova.' : (e.code==='auth/popup-closed-by-user' ? '' : 'Accesso non riuscito: '+e.message); });
 }
 function esciGoogle(){
-  if(confirm('Scollegare l\'account Google da questo bilanciatore?')) firebase.auth().signOut();
+  if(confirm('Scollegare l\'account Google da questo bilanciatore?')) _bilAuth().signOut();
 }
 // Carica l'anagrafica ingredienti da Firebase (solo account di Dario: le regole bloccano gli altri)
 function caricaAnagrafica(){
@@ -2831,7 +2832,7 @@ function importaRicetteBase(input){
 }
 document.addEventListener('DOMContentLoaded',()=>{
   _algsGetDb();
-  firebase.auth().onAuthStateChanged(u=>{
+  _bilAuth().onAuthStateChanged(u=>{
     const gate=document.getElementById('google-gate'), badge=document.getElementById('account-badge');
     document.getElementById('google-attesa').style.display='none';
     document.getElementById('google-btn').style.display='';
@@ -2841,17 +2842,19 @@ document.addEventListener('DOMContentLoaded',()=>{
       badge.textContent='👤 '+u.email.split('@')[0]+' · Esci'; badge.style.display='';
       caricaAnagrafica().then(()=>{ caricaRicetteBase(); caricaPersonalizzazioniCloud(); });
     } else {
-      if(u){ firebase.auth().signOut(); document.getElementById('google-msg').textContent='Account '+u.email+' non autorizzato.'; }
+      if(u){ _bilAuth().signOut(); document.getElementById('google-msg').textContent='Account '+u.email+' non autorizzato.'; }
       badge.style.display='none';
       gate.style.display='flex';
     }
   });
 });
 
+function _bilAuth(){ _algsGetDb(); return _algsFirebaseApp.auth(); }
 function _algsGetDb(){
   if(_algsDb) return _algsDb;
   try{
-    if(!firebase.apps || !firebase.apps.length){
+    _algsFirebaseApp = (firebase.apps || []).find(a => a.name === 'bilanciatore');
+    if(!_algsFirebaseApp){
       _algsFirebaseApp = firebase.initializeApp({
         apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4",
         authDomain:"club-greed.firebaseapp.com",
@@ -2859,9 +2862,9 @@ function _algsGetDb(){
         storageBucket:"club-greed.firebasestorage.app",
         messagingSenderId:"704669833762",
         appId:"1:704669833762:web:917f4c7b104bc8ad39087b"
-      });
+      }, 'bilanciatore');
     }
-    _algsDb = firebase.firestore();
+    _algsDb = _algsFirebaseApp.firestore();
     return _algsDb;
   }catch(e){ console.error('Firebase init error', e); return null; }
 }

@@ -251,7 +251,7 @@ onAuthStateChanged(_auth, u => {
     if (!window._fbReady) { window._fbReady = true; window.dispatchEvent(new Event('fb-ready')); }
     console.log('✅ Firebase GREED connesso come', u.email);
   } else {
-    if (u) { signOut(_auth); document.getElementById('google-msg').textContent = 'Account ' + u.email + ' non autorizzato: usa l\'account GREED del laboratorio.'; }
+    if (u) { signOut(_auth); document.getElementById('google-msg').textContent = 'Hai scelto ' + u.email + ': in laboratorio serve team.greedfrascati@gmail.com. Premi di nuovo e scegli quello.'; }
     if (_gate) _gate.style.display = 'flex';
   }
 });
@@ -259,7 +259,12 @@ window.accediGoogle = function(){
   const m = document.getElementById('google-msg');
   if (location.protocol === 'file:') { m.textContent = 'Apri il gestionale dall\'indirizzo del laboratorio (greedgelateria.github.io/greed-brain/laboratorio/), non dal file.'; return; }
   m.textContent = '';
-  signInWithPopup(_auth, new GoogleAuthProvider()).catch(e => { m.textContent = 'Accesso non riuscito: ' + e.message; });
+  const prov = new GoogleAuthProvider(); prov.setCustomParameters({ prompt: 'select_account' });   // mostra sempre l'elenco degli account
+  signInWithPopup(_auth, prov).catch(e => {
+    m.textContent = e.code === 'auth/popup-blocked' ? 'Chrome ha bloccato la finestra di accesso: consenti i popup per questo sito (icona a destra nella barra degli indirizzi) e riprova.'
+      : e.code === 'auth/network-request-failed' ? 'Manca internet: il primo accesso va fatto con la linea attiva.'
+      : (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') ? '' : 'Accesso non riuscito: ' + e.message;
+  });
 };
 window.esciGoogle = function(){ if (confirm('Scollegare l\'account Google da questo PC?')) signOut(_auth); };
 </script>
@@ -1575,6 +1580,11 @@ function registraAccessoDario(esito){
       data:new Date().toLocaleString('it-IT',{timeZone:'Europe/Rome'}), postazione:location.host||'' }).catch(e=>console.warn('Registro accessi:',e.message));
   }catch(e){}
 }
+// Primo avvio su questo indirizzo: i PIN personali stanno ancora nel vecchio gestionale (Backup → Ripristina)
+function avvisoPinPartenza(){
+  const e=document.getElementById('login-error'); if(!e) return;
+  if(!Object.keys(DB.get('pin_hash',{})||{}).length) e.textContent='Primo avvio su questo indirizzo: valgono i PIN di partenza. Per avere i vostri, nel vecchio gestionale fai Esporta Backup e qui Ripristina Backup.';
+}
 function checkPin(){
   const u=USERS[selUser];
   const h=getPinHashes()[selUser];
@@ -1615,10 +1625,12 @@ function disattivaPin(){
   document.getElementById('imp-pin-msg').textContent='Accesso di '+user+' disattivato.';
 }
 // Uscita automatica: se Dario non tocca niente per 10 minuti, il gestionale torna alla schermata del PIN
-const MINUTI_USCITA_ADMIN = 10;
+const MINUTI_USCITA_ADMIN = 30;
 let _ultimaAttivita = Date.now();
 ['pointerdown','keydown','touchstart','wheel'].forEach(ev => document.addEventListener(ev, () => { _ultimaAttivita = Date.now(); }, { passive:true, capture:true }));
 setInterval(() => {
+  const inProduzione = document.getElementById('guida-screen')?.classList.contains('visible');
+  if (inProduzione) { _ultimaAttivita = Date.now(); return; }   // mai durante una produzione
   if (isAdmin && currentUser && Date.now() - _ultimaAttivita > MINUTI_USCITA_ADMIN * 60000) {
     logout();
     const e = document.getElementById('login-error'); if (e) e.textContent = 'Uscita automatica dopo ' + MINUTI_USCITA_ADMIN + ' minuti di inattività.';
@@ -3606,7 +3618,7 @@ async function confermaDDT(){
 // =============================================
 // INIT
 // =============================================
-initLogin(); updDots();
+initLogin(); updDots(); avvisoPinPartenza();
 </script>
 <script>
 // Laboratorio online: si apre anche se internet salta (copia salvata dal service worker)
