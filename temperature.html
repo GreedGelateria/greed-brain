@@ -66,6 +66,12 @@
     <button class="chiaro" id="pdf">🖨 PDF / Stampa</button>
   </div>
   <div class="stato" id="stato">Scegli apparecchio e mese, poi premi Mostra.</div>
+  <details class="importa" style="margin:10px 0 16px;padding:12px 14px;border:1px dashed #9fb39a;border-radius:10px;background:#f7faf5">
+    <summary style="cursor:pointer;font-weight:600">📥 Importa lo storico esportato dall'app X-Sense</summary>
+    <p style="font-size:13px;margin:8px 0;line-height:1.5">Nell'app X-Sense apri ogni sonda → <b>Esporta dati</b>, poi scegli qui i file (anche tutti insieme). Il registro si riempie con le misure vere, una ogni 30 minuti con minima e massima del periodo, e sostituisce quelle sbagliate. Puoi ripeterlo quando vuoi: niente doppioni.</p>
+    <input type="file" id="fileXsense" accept=".csv,text/csv" multiple>
+    <div id="statoImport" style="font-size:13px;margin-top:8px;line-height:1.5"></div>
+  </details>
 
   <div class="intestazione-stampa" id="intestazione"></div>
   <div id="risultati"></div>
@@ -75,7 +81,7 @@
 <script type="module">
 import { richiediAccesso } from './accesso.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, getDocs, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, getDocs, query, where, orderBy, doc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const FB = { apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", authDomain:"club-greed.firebaseapp.com", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" };
 const app = initializeApp(FB, 'temperature');
@@ -85,7 +91,8 @@ await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
 // Stessi limiti della dashboard: sopra "max" = attenzione, sopra "alert" = fuori limite
 const SENSORI = [
   { id:'armadio_neg_gelateria', nome:'Armadio − Gelateria', min:-11, max:-7,  alert:-5  },
-  { id:'armadio_pos_gelateria', nome:'Armadio + Gelateria', min:1,   max:5,   alert:6   },
+  { id:'armadio_pos_gelateria', nome:'Armadio + Gelateria', min:1,   max:6,   alert:7,
+    nota:'La sonda X-Sense legge circa 1 °C in più del termometro dell\'armadio: valori registrati come misurati, soglie aumentate di 1 °C (attenzione oltre 6 °C, fuori limite oltre 7 °C).' },
   { id:'armadio_pos_lab',       nome:'Armadio + Laboratorio', min:1, max:5,   alert:6,   nuova:true },
   { id:'armadio_neg_lab',       nome:'Armadio − Laboratorio', min:-11, max:-7, alert:-5,  nuova:true },
   { id:'banco_gelati',          nome:'Banco Gelati',        min:-12, max:-9,  alert:-8  },
@@ -110,7 +117,8 @@ async function leggi(s, inizio, fine) {
   const q = query(collection(db, 'sensori', s.id, 'storico'), where('ts', '>=', inizio.getTime()), where('ts', '<', fine.getTime()), orderBy('ts'));
   const snap = await getDocs(q);
   const out = [];
-  snap.forEach(d => { const x = d.data(); if (typeof x.valore === 'number') out.push({ d: new Date(x.ts), v: x.valore, u: x.umidita }); });
+  snap.forEach(d => { const x = d.data(); if (typeof x.valore === 'number') out.push({ d: new Date(x.ts), v: x.valore, u: x.umidita,
+    mn: typeof x.min30 === 'number' ? x.min30 : x.valore, mx: typeof x.max30 === 'number' ? x.max30 : x.valore }); });
   return out;
 }
 
@@ -150,19 +158,20 @@ function grafico(s, letture, inizio, fine) {
 function sezione(s, letture, inizio, fine) {
   const giorni = {};
   letture.forEach(l => { const k = giornoIt(l.d); (giorni[k] = giorni[k] || []).push(l); });
-  const vals = letture.map(l => l.v);
-  const fuori = letture.filter(l => l.v > s.alert).length, att = letture.filter(l => l.v > s.max && l.v <= s.alert).length;
+  const vals = letture.map(l => l.v), minimi = letture.map(l => l.mn), massimi = letture.map(l => l.mx);
+  const fuori = letture.filter(l => l.mx > s.alert).length, att = letture.filter(l => l.mx > s.max && l.mx <= s.alert).length;
   const ndays = Math.round((Math.min(fine, new Date()) - inizio) / 86400000);
   const attese = Math.max(1, ndays * 48);
   let lacune = 0;
   letture.forEach((l, i) => { if (i && l.d - letture[i-1].d > 2*3600e3) lacune++; });
   let h = `<div class="sonda"><h2>${esc(s.nome)}</h2>
     <div class="limiti">Limiti: da ${f1(s.min)}° a ${f1(s.max)}° · fuori limite sopra ${f1(s.alert)}° · una lettura ogni 30 minuti (sonda X-Sense)</div>`;
+  if (s.nota) h += `<div class="limiti" style="font-style:italic">ℹ️ ${esc(s.nota)}</div>`;
   if (!letture.length) return h + '<div class="limiti">Nessuna lettura registrata in questo mese.</div></div>';
   h += `<div class="kpi">
     <div>Letture<b>${letture.length}</b>${Math.min(100, Math.round(letture.length/attese*100))}% del previsto</div>
-    <div>Minima<b>${f1(Math.min(...vals))}°</b></div>
-    <div>Massima<b>${f1(Math.max(...vals))}°</b></div>
+    <div>Minima<b>${f1(Math.min(...minimi))}°</b></div>
+    <div>Massima<b>${f1(Math.max(...massimi))}°</b></div>
     <div>Media<b>${f1(vals.reduce((a,b)=>a+b,0)/vals.length)}°</b></div>
     <div>Fuori limite<b class="${fuori?'err':'ok'}">${fuori}</b>${att} in attenzione</div>
     <div>Interruzioni &gt; 2 h<b class="${lacune?'att':'ok'}">${lacune}</b></div>
@@ -170,8 +179,8 @@ function sezione(s, letture, inizio, fine) {
   h += grafico(s, letture, inizio, fine);
   h += `<table><thead><tr><th>Giorno</th><th>Minima</th><th>Massima</th><th>Media</th><th>Letture</th><th>Esito</th></tr></thead><tbody>`;
   Object.entries(giorni).forEach(([k, l]) => {
-    const v = l.map(x => x.v), mx = Math.max(...v), st = stato(s, mx);
-    h += `<tr><td>${k}</td><td>${f1(Math.min(...v))}°</td><td>${f1(mx)}°</td><td>${f1(v.reduce((a,b)=>a+b,0)/v.length)}°</td><td>${l.length}</td><td class="${st}">${ETICHETTA[st]}</td></tr>`;
+    const v = l.map(x => x.v), mx = Math.max(...l.map(x => x.mx)), st = stato(s, mx);
+    h += `<tr><td>${k}</td><td>${f1(Math.min(...l.map(x => x.mn)))}°</td><td>${f1(mx)}°</td><td>${f1(v.reduce((a,b)=>a+b,0)/v.length)}°</td><td>${l.length}</td><td class="${st}">${ETICHETTA[st]}</td></tr>`;
   });
   h += '</tbody></table>';
   h += `<details class="tutte" ${$('tutteLetture').checked ? 'open' : ''}><summary>Tutte le ${letture.length} letture</summary><table><thead><tr><th>Data</th><th>Ora</th><th>Temperatura</th><th>Umidità</th><th>Esito</th></tr></thead><tbody>`
@@ -212,6 +221,72 @@ function csv() {
   a.download = `GREED_temperature_${ultimo.y}-${pad(ultimo.m)}.csv`;
   a.click();
 }
+
+// ── IMPORTAZIONE DELLO STORICO X-SENSE ───────────────────────────────────
+// File: "Armadio_Pos_Gelateria_Esporta_Dati_….csv" con righe "2026/11/05 18:03,5.8,86.4" (ora italiana, una al minuto).
+// Ogni mezz'ora diventa una lettura: valore all'inizio della mezz'ora + minima e massima della mezz'ora.
+const NOMI_FILE = { 'armadio neg gelateria':'armadio_neg_gelateria', 'armadio pos gelateria':'armadio_pos_gelateria',
+  'banco gelati':'banco_gelati', 'vetrina semifreddi':'vetrina_semifreddi',
+  'armadio pos laboratorio':'armadio_pos_lab', 'armadio neg laboratorio':'armadio_neg_lab' };
+const _fmtRoma = new Intl.DateTimeFormat('en-GB', { timeZone:'Europe/Rome', hourCycle:'h23', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+function scartoRoma(ms) {   // minuti di differenza tra Roma e UTC in quell'istante
+  const p = Object.fromEntries(_fmtRoma.formatToParts(new Date(ms)).map(x => [x.type, x.value]));
+  return (Date.UTC(+p.year, p.month - 1, +p.day, +p.hour, +p.minute) - ms) / 60000;
+}
+function romaInUtc(y, mo, d, h, mi) {
+  const locale = Date.UTC(y, mo - 1, d, h, mi);
+  let ms = locale - scartoRoma(locale) * 60000;
+  ms = locale - scartoRoma(ms) * 60000;
+  return ms;
+}
+function sondaDalFile(nome) {
+  const k = nome.replace(/_Esporta_Dati.*$/i, '').replace(/_/g, ' ').trim().toLowerCase();
+  return NOMI_FILE[k] || null;
+}
+function leggiCsvXsense(testo) {
+  const righe = [];
+  testo.split(/\r?\n/).forEach(r => {
+    const m = r.match(/^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2}),(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)?/);
+    if (m) righe.push({ ms: romaInUtc(+m[1], +m[2], +m[3], +m[4], +m[5]), t: +m[6], u: m[7] !== undefined ? +m[7] : null });
+  });
+  return righe;
+}
+function inMezzore(righe) {
+  const MEZZ = 1800000, slot = new Map();
+  righe.forEach(r => { const k = Math.floor(r.ms / MEZZ) * MEZZ; (slot.get(k) || slot.set(k, []).get(k)).push(r); });
+  return [...slot.entries()].sort((a, b) => a[0] - b[0]).map(([k, l]) => {
+    l.sort((a, b) => a.ms - b.ms);
+    const t = l.map(x => x.t);
+    return { ms: k, valore: l[0].t, umidita: l[0].u, min30: Math.min(...t), max30: Math.max(...t), misure: l.length };
+  });
+}
+async function importaXsense(files) {
+  const st = $('statoImport'); let riepilogo = [];
+  for (const f of files) {
+    const sid = sondaDalFile(f.name);
+    if (!sid) { riepilogo.push(`❌ ${esc(f.name)}: non riconosco la sonda dal nome del file`); continue; }
+    const sensore = SENSORI.find(x => x.id === sid);
+    st.innerHTML = riepilogo.join('<br>') + `<br>⏳ ${esc(sensore.nome)}: leggo il file…`;
+    const righe = leggiCsvXsense(await f.text());
+    if (!righe.length) { riepilogo.push(`❌ ${esc(f.name)}: nessuna misura riconosciuta nel file`); continue; }
+    const letture = inMezzore(righe).filter(x => x.ms <= Date.now());
+    let scritte = 0;
+    for (let i = 0; i < letture.length; i += 400) {
+      const batch = writeBatch(db);
+      letture.slice(i, i + 400).forEach(x => {
+        const id = new Date(x.ms).toISOString().slice(0, 16);   // stesso nome usato dal programma delle sonde
+        batch.set(doc(db, 'sensori', sid, 'storico', id), { valore: x.valore, umidita: x.umidita, min30: x.min30, max30: x.max30,
+          nome: sensore.nome, ts: x.ms, misurataIl: new Date(x.ms).toISOString(), misure: x.misure, _src: 'xsense-export' });
+      });
+      await batch.commit(); scritte += Math.min(400, letture.length - i);
+      st.innerHTML = riepilogo.join('<br>') + `<br>⏳ ${esc(sensore.nome)}: ${scritte}/${letture.length} mezz'ore salvate…`;
+    }
+    const dal = new Date(letture[0].ms), al = new Date(letture[letture.length - 1].ms);
+    riepilogo.push(`✅ ${esc(sensore.nome)}: ${letture.length} mezz'ore dal ${giornoIt(dal)} al ${giornoIt(al)} (${righe.length} misure)`);
+  }
+  st.innerHTML = riepilogo.join('<br>') + '<br>Fatto. Premi <b>Mostra</b> per vedere il registro aggiornato.';
+}
+$('fileXsense').onchange = e => { const f = [...e.target.files]; if (f.length) importaXsense(f).catch(err => { $('statoImport').innerHTML += '<br>❌ Errore: ' + esc(err.message); }); };
 
 $('carica').onclick = carica;
 $('csv').onclick = csv;
