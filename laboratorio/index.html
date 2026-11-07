@@ -772,6 +772,7 @@ window.esciGoogle = function(){ if (confirm('Scollegare l\'account Google da que
       <div class="field-group"><label>Nome Gusto</label><input type="text" id="r-nome" placeholder="es. PISTACCHIO SICILIANO"></div>
       <div class="grid2">
         <div class="field-group"><label>Prezzo Vendita (€/kg)</label><input type="number" id="r-pv" value="28" min="0" step="0.5"></div>
+        <div class="field-group"><label>Tipo prodotto</label><select id="r-tipo"><option value="">Gelato (default)</option><option value="semifreddo">Semifreddo</option><option value="torta">Torta gelato</option></select></div>
         <div class="field-group"><label>Allergeni</label><input type="text" id="r-allergeni" placeholder="es. Frutta a guscio"></div>
       </div>
       <div class="field-group"><label>Istruzione finale</label><input type="text" id="r-instfinale" placeholder="es. Porta a 85°C, poi manteca"></div>
@@ -3010,6 +3011,7 @@ function openNuovaRicetta(nome=null, isDuplica=false){
   document.getElementById('r-nome').value=r?r.nome:'';
   document.getElementById('r-nome').disabled = !!nome && !isDuplica;
   document.getElementById('r-pv').value=r?r.pv:28;
+  document.getElementById('r-tipo').value=(r&&r.tipo)||'';
   document.getElementById('r-allergeni').value=r?r.allergeni:'';
   document.getElementById('r-instfinale').value=r?r.inst_finale:'';
   document.getElementById('r-listaing').value=r?r.lista_ing:'';
@@ -3188,6 +3190,7 @@ function saveRicetta(){
     nome, ingredienti:ings,
     pv:parseFloat(document.getElementById('r-pv').value)||28,
     allergeni:document.getElementById('r-allergeni').value.trim(),
+    tipo:document.getElementById('r-tipo').value||null,
     inst_finale:document.getElementById('r-instfinale').value.trim(),
     lista_ing:document.getElementById('r-listaing').value.trim(),
     costo:null, guadagno:null, _ts:Date.now()
