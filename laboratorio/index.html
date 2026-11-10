@@ -1512,7 +1512,7 @@ function getAllRecipes() {
 // =============================================
 // PIN non più in chiaro: si salvano solo le impronte SHA-256 (cambio PIN in Impostazioni)
 const USERS = { 'DARIO':{role:'admin'}, 'OPERATORE 1':{role:'operatore'} };
-const PIN_DEFAULT_HASH = { 'DARIO':'ff752672d2eb0f9d05422603c4bfd4043971301ac9a7a57334e7a5f5e7e0e84a', 'OPERATORE 1':'b4373f634dbd8c923b6b717b415b514479164152ef888be7cb800725d1f0370c' }; // Operatore 1: PIN 1234
+const PIN_DEFAULT_HASH = { 'DARIO':'6a87bad97b3530deadc797555e243aa6ee9b7b3e4c23b919c8d6d2dbe11e19e6', 'OPERATORE 1':'b4373f634dbd8c923b6b717b415b514479164152ef888be7cb800725d1f0370c' }; // DARIO: 112233 · Operatore 1: 1234
 function getPinHashes(){ return Object.assign({}, PIN_DEFAULT_HASH, DB.get('pin_hash', {})); }
 // Lunghezza del PIN di ogni utente (Dario 6-8 cifre, operatori 4). Senza valore salvato: 4 (PIN di partenza).
 function lunghezzaPin(user){ const m = DB.get('pin_len', {}); return (m && +m[user]) || 4; }
