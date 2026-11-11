@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GREED — Piattaforma</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+:root{--verde:#1f3a1a;--verde2:#2d6a4f;--crema:#f6f1e6;--oro:#c8a34a}
+*{box-sizing:border-box} html,body{height:100%;margin:0}
+body{font-family:'Outfit',sans-serif;background:var(--crema);color:#2a2a22;display:flex;overflow:hidden}
+#menu{width:250px;flex-shrink:0;background:var(--verde);color:#f6f1e6;display:flex;flex-direction:column;height:100%;transition:margin-left .2s}
+#menu.chiuso{margin-left:-250px}
+.marchio{padding:18px 20px 12px;font-family:'Cormorant Garamond',serif;font-weight:700;font-size:26px;letter-spacing:.2em;color:var(--oro)}
+.marchio small{display:block;font-family:'Outfit',sans-serif;font-weight:400;font-size:11px;letter-spacing:.18em;color:#cfd8c4;margin-top:2px}
+#voci{flex:1;overflow-y:auto;padding:4px 10px 14px}
+.gruppo{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#9fb39a;margin:16px 10px 6px;font-weight:600}
+.voce{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:0;color:#f6f1e6;font-family:inherit;font-size:14.5px;padding:10px 12px;border-radius:9px;cursor:pointer}
+.voce:hover{background:rgba(255,255,255,.08)} .voce.on{background:var(--oro);color:var(--verde);font-weight:600}
+.voce .e{width:22px;text-align:center;font-size:16px} .voce .pc{margin-left:auto;font-size:10px;opacity:.7;border:1px solid currentColor;border-radius:8px;padding:1px 6px}
+#utente{padding:12px 16px;border-top:1px solid rgba(255,255,255,.12);font-size:12px;color:#cfd8c4;display:flex;align-items:center;gap:8px}
+#utente button{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.3);color:#f6f1e6;border-radius:7px;padding:4px 10px;font-family:inherit;font-size:12px;cursor:pointer}
+#area{flex:1;display:flex;flex-direction:column;min-width:0;height:100%}
+#barra{height:46px;background:#fff;border-bottom:1px solid #e3d8c2;display:flex;align-items:center;gap:12px;padding:0 14px;flex-shrink:0}
+#barra button{background:transparent;border:0;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px} #barra button:hover{background:#f0e8d8}
+#titolo{font-weight:600;font-size:15px} #barra a{margin-left:auto;font-size:12.5px;color:var(--verde2);text-decoration:none}
+#vista{flex:1;border:0;width:100%;background:#fff}
+#benvenuto{flex:1;overflow:auto;padding:26px}
+.griglia{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;max-width:1100px}
+.carta{background:#fff;border:1px solid #e3d8c2;border-radius:14px;padding:18px;cursor:pointer;text-align:left;font-family:inherit;transition:transform .12s,box-shadow .12s}
+.carta:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.carta .e{font-size:28px} .carta b{display:block;margin-top:8px;font-size:15.5px;color:var(--verde)} .carta span{font-size:12.5px;color:#6a6a5a;line-height:1.4;display:block;margin-top:3px}
+h2{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:28px;color:var(--verde);margin:0 0 4px} h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8a7a5a;margin:24px 0 10px}
+#login{position:fixed;inset:0;background:var(--verde);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;color:#f6f1e6;text-align:center;padding:20px}
+#login .m{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:54px;letter-spacing:.3em;padding-left:.3em;color:var(--oro)}
+#login button{margin-top:28px;background:var(--oro);color:var(--verde);border:0;border-radius:10px;padding:14px 30px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer}
+@media(max-width:800px){#menu{position:fixed;z-index:5;box-shadow:4px 0 20px rgba(0,0,0,.3)}}
+</style></head><body>
+<div id="login"><div class="m">GREED</div><div style="letter-spacing:.2em;font-size:13px;margin-top:6px">PIATTAFORMA · GELATO NATURALE</div>
+  <button onclick="accedi()">Accedi con Google</button><div id="loginErr" style="margin-top:14px;font-size:13px;color:#f3b0a0"></div></div>
+<nav id="menu"><div class="marchio">GREED<small>PIATTAFORMA</small></div><div id="voci"></div>
+  <div id="utente"><span id="chi"></span><button onclick="esci()">Esci</button></div></nav>
+<div id="area">
+  <div id="barra"><button onclick="document.getElementById('menu').classList.toggle('chiuso')" title="Menu">☰</button>
+    <button onclick="apri('home')" title="Inizio">🏠</button><span id="titolo">Inizio</span><a id="esterno" href="#" target="_blank" rel="noopener" style="display:none">Apri in una scheda a parte ↗</a></div>
+  <div id="benvenuto"></div>
+  <iframe id="vista" style="display:none" allow="usb; serial; camera; microphone; clipboard-read; clipboard-write; fullscreen; bluetooth"></iframe>
+</div>
+<script>
+// ── TUTTI I PROGRAMMI GREED, in un posto solo ───────────────────────────────
+// ruoli: 'admin' = Dario · 'staff' = account del banco/laboratorio · pc: si apre solo sul PC indicato (in una scheda a parte)
+const B = 'https://greedgelateria.github.io/';
+const PROGRAMMI = [
+  { g:'Banco', id:'banco', e:'🛒', n:'Cassa, clienti e ordini', d:'Punti, sconti, check-in, gift card, ordini online', u:B+'club-greed-crm/prova.html', r:['admin','staff'] },
+  { g:'Banco', id:'gusti', e:'🍦', n:'Gusti in vetrina', d:'Accendi e spegni i gusti, orari, Ora Furba', u:B+'admin-gusti/', r:['admin','staff'] },
+  { g:'Banco', id:'etichette', e:'🏷️', n:'Etichette banco', d:'Cartellini dei gusti con allergeni, pronti da stampare', u:B+'admin-gusti/etichette.html', r:['admin','staff'] },
+  { g:'Laboratorio', id:'lab', e:'👨‍🍳', n:'Produzione', d:'Ricette, pesate, lotti ed etichette di produzione', u:B+'greed-brain/laboratorio/', r:['admin','staff'] },
+  { g:'Laboratorio', id:'lab-pc', e:'🖥️', n:'Produzione (PC laboratorio)', d:'Il gestionale installato sul PC del laboratorio', u:'http://localhost:8787/gelateria_v3.html', r:['admin','staff'], pc:'lab' },
+  { g:'Laboratorio', id:'ddt', e:'📦', n:'Carico merce (DDT)', d:'Entrate in magazzino e lotti dei fornitori', u:B+'greed-brain/ddt.html', r:['admin','staff'] },
+  { g:'Laboratorio', id:'inventario', e:'📋', n:'Inventario', d:'Giacenze di magazzino', u:B+'greed-brain/inventario.html', r:['admin','staff'] },
+  { g:'HACCP', id:'brain', e:'🧠', n:'Cruscotto HACCP', d:'Temperature in diretta, pulizie, report per le ispezioni', u:B+'greed-brain/', r:['admin','staff'] },
+  { g:'HACCP', id:'temperature', e:'🌡️', n:'Registro temperature', d:'Storico mensile e importazione da X-Sense', u:B+'greed-brain/temperature.html', r:['admin','staff'] },
+  { g:'HACCP', id:'pulizie', e:'🧽', n:'Pulizie', d:'Piano di pulizia e sanificazione da spuntare', u:B+'greed-brain/greed_pulizie_haccp.html', r:['admin','staff'] },
+  { g:'HACCP', id:'nc', e:'⚠️', n:'Non conformità', d:'Segnalazioni e azioni correttive', u:B+'greed-brain/greed_nonconformita.html', r:['admin','staff'] },
+  { g:'Ricette e costi', id:'bilanciatore', e:'⚗️', n:'Bilanciatore', d:'Ricette, Flavor Lab e Linea Mente', u:B+'greed-brain/laboratorio/bilanciatore.html', r:['admin'] },
+  { g:'Ricette e costi', id:'bil-pc', e:'🖥️', n:'Bilanciatore (PC ufficio)', d:'Quello che apri con "Avvia bilanciatore"', u:'http://localhost:3001/gelato_bilanciatore_integrated', r:['admin'], pc:'ufficio' },
+  { g:'Ricette e costi', id:'pro', e:'📈', n:'GelateriaPro', d:'Incassi, confronto anni, costi e margini dei gusti', u:'http://localhost:3001/gelateria_pro', r:['admin'], pc:'ufficio' },
+  { g:'Clienti e marketing', id:'campagne', e:'📣', n:'Campagne e Club GREED', d:'WhatsApp, passaparola, compleanni, risultati', u:B+'club-greed-crm/prova.html', r:['admin'] },
+  { g:'Clienti e marketing', id:'contenuti', e:'📸', n:'Contenuti social', d:'Piano editoriale e pubblicazione', u:B+'greed-brain/contenuti.html', r:['admin'] },
+  { g:'Clienti e marketing', id:'sito', e:'🌐', n:'Sito ordini (come lo vede il cliente)', d:'La pagina i-gusti', u:B+'i-gusti/', r:['admin','staff'] },
+  { g:'Sicurezza', id:'accessi', e:'🔐', n:'Accessi al laboratorio', d:'Chi è entrato come Dario nel gestionale', u:B+'greed-brain/accessi_laboratorio.html', r:['admin'] }
+];
+const EMAIL = { 'gelateriagreed@gmail.com':'admin', 'team.greedfrascati@gmail.com':'staff' };
+let RUOLO = null;
+const visibili = () => PROGRAMMI.filter(p => p.r.includes(RUOLO));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function disegna() {
+  const v = visibili(), gruppi = [...new Set(v.map(p => p.g))];
+  document.getElementById('voci').innerHTML = gruppi.map(g => `<div class="gruppo">${esc(g)}</div>` +
+    v.filter(p => p.g === g).map(p => `<button class="voce" id="v-${p.id}" onclick="apri('${p.id}')"><span class="e">${p.e}</span>${esc(p.n)}${p.pc ? '<span class="pc">PC</span>' : ''}</button>`).join('')).join('');
+  document.getElementById('benvenuto').innerHTML = `<h2>${RUOLO === 'admin' ? 'Ciao Dario' : 'GREED · Banco e laboratorio'}</h2><div style="color:#6a6a5a;font-size:14px">Scegli cosa vuoi fare: tutto si apre qui dentro, senza cambiare pagina.</div>` +
+    gruppi.map(g => `<h3>${esc(g)}</h3><div class="griglia">` + v.filter(p => p.g === g).map(p =>
+      `<button class="carta" onclick="apri('${p.id}')"><div class="e">${p.e}</div><b>${esc(p.n)}</b><span>${esc(p.d)}${p.pc ? `<br><i>Si apre solo sul PC ${p.pc === 'lab' ? 'del laboratorio' : "dell'ufficio"}.</i>` : ''}</span></button>`).join('') + '</div>').join('');
+}
+function apri(id) {
+  const vista = document.getElementById('vista'), ben = document.getElementById('benvenuto'), est = document.getElementById('esterno');
+  document.querySelectorAll('.voce').forEach(b => b.classList.remove('on'));
+  if (id === 'home') { vista.style.display = 'none'; ben.style.display = 'block'; document.getElementById('titolo').textContent = 'Inizio'; est.style.display = 'none'; try { localStorage.removeItem('greed_piattaforma_ultimo'); } catch (e) {} return; }
+  const p = visibili().find(x => x.id === id); if (!p) return;
+  document.getElementById('v-' + id)?.classList.add('on');
+  document.getElementById('titolo').textContent = p.e + ' ' + p.n;
+  if (p.pc) { window.open(p.u, '_blank', 'noopener'); return; }       // i programmi installati sul PC si aprono a parte
+  est.href = p.u; est.style.display = 'inline';
+  ben.style.display = 'none'; vista.style.display = 'block';
+  if (vista.dataset.id !== id) { vista.src = p.u; vista.dataset.id = id; }
+  try { localStorage.setItem('greed_piattaforma_ultimo', id); } catch (e) {}
+  if (window.innerWidth <= 800) document.getElementById('menu').classList.add('chiuso');
+}
+function entra(email) {
+  RUOLO = EMAIL[email];
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('chi').textContent = RUOLO === 'admin' ? 'Dario' : 'Staff';
+  disegna();
+  let ultimo = null; try { ultimo = localStorage.getItem('greed_piattaforma_ultimo'); } catch (e) {}
+  if (RUOLO === 'staff' && !ultimo) ultimo = 'banco';            // il Tablet parte dalla cassa
+  if (ultimo && visibili().some(p => p.id === ultimo && !p.pc)) apri(ultimo);
+}
+function avvia() {
+  firebase.initializeApp({ apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", authDomain:"club-greed.firebaseapp.com", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" }, 'piattaforma');
+  const auth = firebase.app('piattaforma').auth();
+  auth.onAuthStateChanged(u => {
+    if (u && EMAIL[u.email]) { entra(u.email); return; }
+    if (u) { document.getElementById('loginErr').textContent = 'Account ' + u.email + ' non autorizzato.'; auth.signOut(); }
+    document.getElementById('login').style.display = 'flex';
+  });
+  window.accedi = () => { const p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); auth.signInWithPopup(p).catch(e => { document.getElementById('loginErr').textContent = e.code === 'auth/popup-closed-by-user' ? '' : e.message; }); };
+  window.esci = () => auth.signOut().then(() => location.reload());
+}
+if (!window.__PROVA) avvia();
+</script></body></html>
