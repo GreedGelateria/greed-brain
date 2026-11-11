@@ -62,7 +62,7 @@ const PROGRAMMI = [
   { g:'HACCP', id:'pulizie', e:'🧽', n:'Pulizie', d:'Piano di pulizia e sanificazione da spuntare', u:B+'greed-brain/greed_pulizie_haccp.html', r:['admin','staff'], post:['banco','laboratorio'] },
   { g:'HACCP', id:'nc', e:'⚠️', n:'Non conformità', d:'Segnalazioni e azioni correttive', u:B+'greed-brain/greed_nonconformita.html', r:['admin','staff'], post:['banco','laboratorio'] },
   { g:'Ricette e costi', id:'bil-pc', e:'⚗️', n:'Bilanciatore', d:'Ricette, Flavor Lab e Linea Mente', u:'http://localhost:3001/gelato_bilanciatore_integrated', r:['admin'], pc:'ufficio', avvio:'Avvia bilanciatore' },
-  { g:'Ricette e costi', id:'pro', e:'📈', n:'GelateriaPro', d:'Incassi, confronto anni, costi e margini dei gusti', u:'http://localhost:3001/gelateria_pro', r:['admin'], pc:'ufficio', avvio:'Avvia bilanciatore' },
+  { g:'Ricette e costi', id:'pro', e:'📈', n:'GelateriaPro', d:'Incassi, confronto anni, costi e margini dei gusti', u:'http://localhost:3001/gelateria_pro', r:['admin'], pc:'ufficio', avvio:'Avvia gelateria' },
   { g:'Clienti e marketing', id:'campagne', e:'📣', n:'Campagne e Club GREED', d:'WhatsApp, passaparola, compleanni, risultati', u:B+'club-greed-crm/', r:['admin'] },
   { g:'Clienti e marketing', id:'contenuti', e:'📸', n:'Contenuti social', d:'Piano editoriale e pubblicazione', u:B+'greed-brain/contenuti.html', r:['admin'] },
   { g:'Clienti e marketing', id:'sito', e:'🌐', n:'Sito ordini (come lo vede il cliente)', d:'La pagina i-gusti', u:B+'i-gusti/', r:['admin','staff'], post:['banco'] },
@@ -111,27 +111,19 @@ function impostaPostazione(k) {
   POST = k; try { localStorage.setItem('greed_postazione', k); localStorage.removeItem('greed_piattaforma_ultimo'); } catch (e) {}
   entra(null);
 }
-// I programmi installati sul PC funzionano solo se il loro avvio è acceso: controllo prima di aprire
-async function apriSulPc(p) {
+// I programmi installati sul PC si aprono subito in una scheda nuova (Chrome blocca le schede aperte in ritardo
+// e non lascia controllare da internet i programmi del PC): sotto restano le istruzioni se la scheda è bianca.
+function apriSulPc(p) {
   const ben = document.getElementById('benvenuto'), vista = document.getElementById('vista');
+  window.open(p.u, '_blank');
   vista.style.display = 'none'; ben.style.display = 'block'; document.getElementById('esterno').style.display = 'none';
-  ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="color:#6a6a5a">Controllo che il programma sia acceso…</div>`;
-  // il server del PC ci mette un po' ad accendersi: riprovo per 40 secondi prima di arrendermi
-  const prova = async () => { try { const c = new AbortController(); setTimeout(() => c.abort(), 3000); await fetch(p.u, { mode: 'no-cors', signal: c.signal, cache: 'no-store' }); return true; } catch (e) { return false; } };
-  let ok = false;
-  for (let t = 0; t < 40 && !ok; t += 4) {
-    ok = await prova();
-    if (!ok) { ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="color:#6a6a5a;font-size:15px;line-height:1.6">Aspetto che si accenda… (${t + 4}/40 secondi)<br>Se non l'hai già fatto, sul desktop fai doppio clic su <b>${esc(p.avvio)}</b>.</div>`; await new Promise(r => setTimeout(r, 1000)); }
-  }
-  if (ok) {
-    window.open(p.u, '_blank');
-    ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="color:#6a6a5a;font-size:14px;line-height:1.6">Si è aperto in una scheda a parte.<br>Se non lo vedi, <a href="${p.u}" target="_blank">premi qui</a>.</div>`;
-  } else {
-    ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="background:#fff;border:1px solid #e3d8c2;border-radius:14px;padding:20px;max-width:560px;font-size:15px;line-height:1.6">
-      Il programma non è acceso su questo PC.<br><br><b>1.</b> Sul desktop fai doppio clic su <b>${esc(p.avvio)}</b>.<br><b>2.</b> Aspetta qualche secondo, poi premi qui sotto.
-      <div style="margin-top:16px"><button class="carta" style="padding:10px 18px;display:inline-block" onclick="apriSulPc(PROGRAMMI.find(x=>x.id==='${p.id}'))"><b style="margin:0">Riprova</b></button></div>
-      <div style="margin-top:12px;font-size:12.5px;color:#8a7a5a">Funziona solo sul PC ${p.pc === 'laboratorio' ? 'del laboratorio' : "dell'ufficio"}.</div></div>`;
-  }
+  const dove = p.pc === 'laboratorio' ? 'nella cartella <b>Gestionale26</b> del PC del laboratorio' : 'nella cartella <b>Piattaforma gelato</b> del PC dell\'ufficio';
+  ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="background:#fff;border:1px solid #e3d8c2;border-radius:14px;padding:20px;max-width:600px;font-size:15px;line-height:1.7">
+    Si è aperto in una <b>scheda nuova</b> di Chrome.<br><br>
+    Se la scheda è bianca o dice <i>"Impossibile raggiungere il sito"</i>:<br>
+    <b>1.</b> fai doppio clic su <b>${esc(p.avvio)}</b>, ${dove};<br>
+    <b>2.</b> aspetta qualche secondo e ricarica quella scheda (tasto <b>F5</b>).
+    <div style="margin-top:14px"><a href="${p.u}" target="_blank" style="color:#2d6a4f;font-weight:600">Apri di nuovo ↗</a></div></div>`;
 }
 function entra(email) {
   if (email) RUOLO = EMAIL[email];
