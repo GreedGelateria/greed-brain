@@ -53,7 +53,7 @@ const PROGRAMMI = [
   { g:'Banco', id:'banco', e:'🛒', n:'Cassa, clienti e ordini', d:'Punti, sconti, check-in, gift card, ordini online', u:B+'club-greed-crm/', r:['admin','staff'], post:['banco'] },
   { g:'Banco', id:'gusti', e:'🍦', n:'Gusti in vetrina', d:'Accendi e spegni i gusti, orari, Ora Furba', u:B+'admin-gusti/', r:['admin','staff'], post:['banco'] },
   { g:'Banco', id:'etichette', e:'🏷️', n:'Etichette banco', d:'Cartellini dei gusti con allergeni, pronti da stampare', u:B+'admin-gusti/etichette.html', r:['admin','staff'], post:['banco'] },
-  { g:'Laboratorio', id:'lab-pc', e:'👨‍🍳', n:'Produzione', d:'Il gestionale del laboratorio: ricette, pesate, lotti', u:'http://localhost:8787/gelateria_v3.html', r:['admin','staff'], post:['laboratorio'], pc:'laboratorio', avvio:'Avvia laboratorio' },
+  { g:'Laboratorio', id:'lab-pc', e:'👨‍🍳', n:'Produzione', d:'Il gestionale del laboratorio: ricette, pesate, lotti', u:'http://localhost:8787/gelateria_v3.html', r:['admin','staff'], post:['laboratorio'], pc:'laboratorio', avvio:'Avvia laboratorio', proto:'laboratorio' },
   { g:'Laboratorio', id:'lab', e:'🌐', n:'Produzione (consultazione da remoto)', d:'Il gestionale online, per guardare ricette e lotti da fuori', u:B+'greed-brain/laboratorio/', r:['admin'] },
   { g:'Laboratorio', id:'ddt', e:'📦', n:'Carico merce (DDT)', d:'Entrate in magazzino e lotti dei fornitori', u:B+'greed-brain/ddt.html', r:['admin','staff'], post:['laboratorio'] },
   { g:'Laboratorio', id:'inventario', e:'📋', n:'Inventario', d:'Giacenze di magazzino', u:B+'greed-brain/inventario.html', r:['admin','staff'], post:['laboratorio'] },
@@ -61,8 +61,8 @@ const PROGRAMMI = [
   { g:'HACCP', id:'temperature', e:'🌡️', n:'Registro temperature', d:'Storico mensile e importazione da X-Sense', u:B+'greed-brain/temperature.html', r:['admin','staff'], post:['banco','laboratorio'] },
   { g:'HACCP', id:'pulizie', e:'🧽', n:'Pulizie', d:'Piano di pulizia e sanificazione da spuntare', u:B+'greed-brain/greed_pulizie_haccp.html', r:['admin','staff'], post:['banco','laboratorio'] },
   { g:'HACCP', id:'nc', e:'⚠️', n:'Non conformità', d:'Segnalazioni e azioni correttive', u:B+'greed-brain/greed_nonconformita.html', r:['admin','staff'], post:['banco','laboratorio'] },
-  { g:'Ricette e costi', id:'bil-pc', e:'⚗️', n:'Bilanciatore', d:'Ricette, Flavor Lab e Linea Mente', u:'http://localhost:3001/gelato_bilanciatore_integrated', r:['admin'], pc:'ufficio', avvio:'Avvia bilanciatore' },
-  { g:'Ricette e costi', id:'pro', e:'📈', n:'GelateriaPro', d:'Incassi, confronto anni, costi e margini dei gusti', u:'http://localhost:3001/gelateria_pro', r:['admin'], pc:'ufficio', avvio:'Avvia gelateria' },
+  { g:'Ricette e costi', id:'bil-pc', e:'⚗️', n:'Bilanciatore', d:'Ricette, Flavor Lab e Linea Mente', u:'http://localhost:3001/gelato_bilanciatore_integrated', r:['admin'], pc:'ufficio', avvio:'Avvia bilanciatore', proto:'bilanciatore' },
+  { g:'Ricette e costi', id:'pro', e:'📈', n:'GelateriaPro', d:'Incassi, confronto anni, costi e margini dei gusti', u:'http://localhost:3001/gelateria_pro', r:['admin'], pc:'ufficio', avvio:'Avvia gelateria', proto:'gelateria' },
   { g:'Clienti e marketing', id:'campagne', e:'📣', n:'Campagne e Club GREED', d:'WhatsApp, passaparola, compleanni, risultati', u:B+'club-greed-crm/', r:['admin'] },
   { g:'Clienti e marketing', id:'contenuti', e:'📸', n:'Contenuti social', d:'Piano editoriale e pubblicazione', u:B+'greed-brain/contenuti.html', r:['admin'] },
   { g:'Clienti e marketing', id:'sito', e:'🌐', n:'Sito ordini (come lo vede il cliente)', d:'La pagina i-gusti', u:B+'i-gusti/', r:['admin','staff'], post:['banco'] },
@@ -115,15 +115,16 @@ function impostaPostazione(k) {
 // e non lascia controllare da internet i programmi del PC): sotto restano le istruzioni se la scheda è bianca.
 function apriSulPc(p) {
   const ben = document.getElementById('benvenuto'), vista = document.getElementById('vista');
-  window.open(p.u, '_blank');
+  // greed://… fa partire da solo "Avvia …" sul PC (dopo aver fatto una volta INSTALLA_COLLEGAMENTI)
+  location.href = 'greed://' + p.proto;
   vista.style.display = 'none'; ben.style.display = 'block'; document.getElementById('esterno').style.display = 'none';
-  const dove = p.pc === 'laboratorio' ? 'nella cartella <b>Gestionale26</b> del PC del laboratorio' : 'nella cartella <b>Piattaforma gelato</b> del PC dell\'ufficio';
-  ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="background:#fff;border:1px solid #e3d8c2;border-radius:14px;padding:20px;max-width:600px;font-size:15px;line-height:1.7">
-    Si è aperto in una <b>scheda nuova</b> di Chrome.<br><br>
-    Se la scheda è bianca o dice <i>"Impossibile raggiungere il sito"</i>:<br>
-    <b>1.</b> fai doppio clic su <b>${esc(p.avvio)}</b>, ${dove};<br>
-    <b>2.</b> aspetta qualche secondo e ricarica quella scheda (tasto <b>F5</b>).
-    <div style="margin-top:14px"><a href="${p.u}" target="_blank" style="color:#2d6a4f;font-weight:600">Apri di nuovo ↗</a></div></div>`;
+  const cartella = p.pc === 'laboratorio' ? 'Gestionale26 (PC del laboratorio)' : 'Piattaforma gelato (PC dell\'ufficio)';
+  ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="background:#fff;border:1px solid #e3d8c2;border-radius:14px;padding:20px;max-width:620px;font-size:15px;line-height:1.7">
+    Sto avviando <b>${esc(p.avvio)}</b>: tra qualche secondo ${esc(p.n)} si apre in una scheda nuova.<br>
+    <span style="font-size:13.5px;color:#6a6a5a">Se Chrome chiede il permesso, metti la spunta su <b>"Consenti sempre"</b> e premi <b>Apri</b>.</span>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;font-size:13.5px;color:#6a6a5a">
+      Non succede niente? Su questo PC va fatto <b>una volta sola</b> il doppio clic su <b>INSTALLA_COLLEGAMENTI</b>, nella cartella ${esc(cartella)}.<br>
+      Se il programma è già acceso: <a href="${p.u}" target="_blank" style="color:#2d6a4f;font-weight:600">apri direttamente ↗</a></div></div>`;
 }
 function entra(email) {
   if (email) RUOLO = EMAIL[email];
