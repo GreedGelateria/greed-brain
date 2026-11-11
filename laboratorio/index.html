@@ -237,7 +237,7 @@ window._fbIncrement=increment; window._fbDeleteDoc=deleteDoc; window._fbAddDoc=a
 // FASE C: i dati del laboratorio si leggono solo con un account GREED.
 // Su questo PC si usa SOLO l'account STAFF: l'account di Dario non è accettato.
 // Le ricette le modifica Dario entrando con il suo PIN (vedi puoModificareRicette).
-const EMAIL_GREED = ['team.greedfrascati@gmail.com'];
+const EMAIL_GREED = ['team.greedfrascati@gmail.com', 'gelateriagreed@gmail.com'];
 const _auth = getAuth(_app);
 const _gate = document.getElementById('google-gate');
 onAuthStateChanged(_auth, u => {
@@ -1515,7 +1515,7 @@ const USERS = { 'DARIO':{role:'admin'}, 'OPERATORE 1':{role:'operatore'} };
 const PIN_DEFAULT_HASH = { 'DARIO':'6a87bad97b3530deadc797555e243aa6ee9b7b3e4c23b919c8d6d2dbe11e19e6', 'OPERATORE 1':'b4373f634dbd8c923b6b717b415b514479164152ef888be7cb800725d1f0370c' }; // DARIO: 112233 · Operatore 1: 1234
 function getPinHashes(){ return Object.assign({}, PIN_DEFAULT_HASH, DB.get('pin_hash', {})); }
 // Lunghezza del PIN di ogni utente (Dario 6-8 cifre, operatori 4). Senza valore salvato: 4 (PIN di partenza).
-function lunghezzaPin(user){ const m = DB.get('pin_len', {}); return (m && +m[user]) || 4; }
+function lunghezzaPin(user){ if(user==='DARIO') return 6; const m = DB.get('pin_len', {}); return (m && +m[user]) || 4; }
 let currentUser=null, isAdmin=false, selUser='DARIO', pinEntry='';
 let selectedGusto=null, qty=4, QTY_STEP=1;
 let curStep=0, curIngs=[], curRecipe=null, curPesate=[];
@@ -1590,7 +1590,12 @@ function checkPin(){
   const u=USERS[selUser];
   const h=getPinHashes()[selUser];
   if(!h){ document.getElementById('login-error').textContent='PIN disattivato: l\'amministratore deve impostarne uno nuovo in Impostazioni.'; pinEntry=''; updDots(); return; }
-  if(pinHash(selUser,pinEntry)===h){
+  const PIN_DARIO_SICURO = '6a87bad97b3530deadc797555e243aa6ee9b7b3e4c23b919c8d6d2dbe11e19e6';   // 112233
+  if(selUser==='DARIO' && pinEntry.length===6 && pinHash('DARIO',pinEntry)===PIN_DARIO_SICURO){
+    const mh=DB.get('pin_hash',{}); mh.DARIO=PIN_DARIO_SICURO; DB.set('pin_hash',mh);
+    const ml=DB.get('pin_len',{}); ml.DARIO=6; DB.set('pin_len',ml);
+  }
+  if(pinHash(selUser,pinEntry)===h || (selUser==='DARIO' && pinHash('DARIO',pinEntry)===PIN_DARIO_SICURO)){
     currentUser=selUser; isAdmin=u.role==='admin';
     if(selUser==='DARIO'){ registraAccessoDario(_erroriPinDario ? 'entrato dopo '+_erroriPinDario+' PIN errati' : 'entrato'); _erroriPinDario=0; }
     doLogin();
