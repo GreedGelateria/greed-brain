@@ -50,28 +50,29 @@ h2{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:28px;color:v
 // ruoli: 'admin' = Dario · 'staff' = account del banco/laboratorio · pc: si apre solo sul PC indicato (in una scheda a parte)
 const B = 'https://greedgelateria.github.io/';
 const PROGRAMMI = [
-  { g:'Banco', id:'banco', e:'🛒', n:'Cassa, clienti e ordini', d:'Punti, sconti, check-in, gift card, ordini online', u:B+'club-greed-crm/prova.html', r:['admin','staff'] },
-  { g:'Banco', id:'gusti', e:'🍦', n:'Gusti in vetrina', d:'Accendi e spegni i gusti, orari, Ora Furba', u:B+'admin-gusti/', r:['admin','staff'] },
-  { g:'Banco', id:'etichette', e:'🏷️', n:'Etichette banco', d:'Cartellini dei gusti con allergeni, pronti da stampare', u:B+'admin-gusti/etichette.html', r:['admin','staff'] },
-  { g:'Laboratorio', id:'lab', e:'👨‍🍳', n:'Produzione', d:'Ricette, pesate, lotti ed etichette di produzione', u:B+'greed-brain/laboratorio/', r:['admin','staff'] },
-  { g:'Laboratorio', id:'lab-pc', e:'🖥️', n:'Produzione (PC laboratorio)', d:'Il gestionale installato sul PC del laboratorio', u:'http://localhost:8787/gelateria_v3.html', r:['admin','staff'], pc:'lab' },
-  { g:'Laboratorio', id:'ddt', e:'📦', n:'Carico merce (DDT)', d:'Entrate in magazzino e lotti dei fornitori', u:B+'greed-brain/ddt.html', r:['admin','staff'] },
-  { g:'Laboratorio', id:'inventario', e:'📋', n:'Inventario', d:'Giacenze di magazzino', u:B+'greed-brain/inventario.html', r:['admin','staff'] },
-  { g:'HACCP', id:'brain', e:'🧠', n:'Cruscotto HACCP', d:'Temperature in diretta, pulizie, report per le ispezioni', u:B+'greed-brain/', r:['admin','staff'] },
-  { g:'HACCP', id:'temperature', e:'🌡️', n:'Registro temperature', d:'Storico mensile e importazione da X-Sense', u:B+'greed-brain/temperature.html', r:['admin','staff'] },
-  { g:'HACCP', id:'pulizie', e:'🧽', n:'Pulizie', d:'Piano di pulizia e sanificazione da spuntare', u:B+'greed-brain/greed_pulizie_haccp.html', r:['admin','staff'] },
-  { g:'HACCP', id:'nc', e:'⚠️', n:'Non conformità', d:'Segnalazioni e azioni correttive', u:B+'greed-brain/greed_nonconformita.html', r:['admin','staff'] },
-  { g:'Ricette e costi', id:'bilanciatore', e:'⚗️', n:'Bilanciatore', d:'Ricette, Flavor Lab e Linea Mente', u:B+'greed-brain/laboratorio/bilanciatore.html', r:['admin'] },
-  { g:'Ricette e costi', id:'bil-pc', e:'🖥️', n:'Bilanciatore (PC ufficio)', d:'Quello che apri con "Avvia bilanciatore"', u:'http://localhost:3001/gelato_bilanciatore_integrated', r:['admin'], pc:'ufficio' },
-  { g:'Ricette e costi', id:'pro', e:'📈', n:'GelateriaPro', d:'Incassi, confronto anni, costi e margini dei gusti', u:'http://localhost:3001/gelateria_pro', r:['admin'], pc:'ufficio' },
-  { g:'Clienti e marketing', id:'campagne', e:'📣', n:'Campagne e Club GREED', d:'WhatsApp, passaparola, compleanni, risultati', u:B+'club-greed-crm/prova.html', r:['admin'] },
+  { g:'Banco', id:'banco', e:'🛒', n:'Cassa, clienti e ordini', d:'Punti, sconti, check-in, gift card, ordini online', u:B+'club-greed-crm/', r:['admin','staff'], post:['banco'] },
+  { g:'Banco', id:'gusti', e:'🍦', n:'Gusti in vetrina', d:'Accendi e spegni i gusti, orari, Ora Furba', u:B+'admin-gusti/', r:['admin','staff'], post:['banco'] },
+  { g:'Banco', id:'etichette', e:'🏷️', n:'Etichette banco', d:'Cartellini dei gusti con allergeni, pronti da stampare', u:B+'admin-gusti/etichette.html', r:['admin','staff'], post:['banco'] },
+  { g:'Laboratorio', id:'lab-pc', e:'👨‍🍳', n:'Produzione', d:'Il gestionale del laboratorio: ricette, pesate, lotti', u:'http://localhost:8787/gelateria_v3.html', r:['admin','staff'], post:['laboratorio'], pc:'laboratorio', avvio:'Avvia laboratorio' },
+  { g:'Laboratorio', id:'lab', e:'🌐', n:'Produzione (consultazione da remoto)', d:'Il gestionale online, per guardare ricette e lotti da fuori', u:B+'greed-brain/laboratorio/', r:['admin'] },
+  { g:'Laboratorio', id:'ddt', e:'📦', n:'Carico merce (DDT)', d:'Entrate in magazzino e lotti dei fornitori', u:B+'greed-brain/ddt.html', r:['admin','staff'], post:['laboratorio'] },
+  { g:'Laboratorio', id:'inventario', e:'📋', n:'Inventario', d:'Giacenze di magazzino', u:B+'greed-brain/inventario.html', r:['admin','staff'], post:['laboratorio'] },
+  { g:'HACCP', id:'brain', e:'🧠', n:'Cruscotto HACCP', d:'Temperature in diretta, pulizie, report per le ispezioni', u:B+'greed-brain/', r:['admin','staff'], post:['banco','laboratorio'] },
+  { g:'HACCP', id:'temperature', e:'🌡️', n:'Registro temperature', d:'Storico mensile e importazione da X-Sense', u:B+'greed-brain/temperature.html', r:['admin','staff'], post:['banco','laboratorio'] },
+  { g:'HACCP', id:'pulizie', e:'🧽', n:'Pulizie', d:'Piano di pulizia e sanificazione da spuntare', u:B+'greed-brain/greed_pulizie_haccp.html', r:['admin','staff'], post:['banco','laboratorio'] },
+  { g:'HACCP', id:'nc', e:'⚠️', n:'Non conformità', d:'Segnalazioni e azioni correttive', u:B+'greed-brain/greed_nonconformita.html', r:['admin','staff'], post:['banco','laboratorio'] },
+  { g:'Ricette e costi', id:'bil-pc', e:'⚗️', n:'Bilanciatore', d:'Ricette, Flavor Lab e Linea Mente', u:'http://localhost:3001/gelato_bilanciatore_integrated', r:['admin'], pc:'ufficio', avvio:'Avvia bilanciatore' },
+  { g:'Ricette e costi', id:'pro', e:'📈', n:'GelateriaPro', d:'Incassi, confronto anni, costi e margini dei gusti', u:'http://localhost:3001/gelateria_pro', r:['admin'], pc:'ufficio', avvio:'Avvia bilanciatore' },
+  { g:'Clienti e marketing', id:'campagne', e:'📣', n:'Campagne e Club GREED', d:'WhatsApp, passaparola, compleanni, risultati', u:B+'club-greed-crm/', r:['admin'] },
   { g:'Clienti e marketing', id:'contenuti', e:'📸', n:'Contenuti social', d:'Piano editoriale e pubblicazione', u:B+'greed-brain/contenuti.html', r:['admin'] },
-  { g:'Clienti e marketing', id:'sito', e:'🌐', n:'Sito ordini (come lo vede il cliente)', d:'La pagina i-gusti', u:B+'i-gusti/', r:['admin','staff'] },
+  { g:'Clienti e marketing', id:'sito', e:'🌐', n:'Sito ordini (come lo vede il cliente)', d:'La pagina i-gusti', u:B+'i-gusti/', r:['admin','staff'], post:['banco'] },
   { g:'Sicurezza', id:'accessi', e:'🔐', n:'Accessi al laboratorio', d:'Chi è entrato come Dario nel gestionale', u:B+'greed-brain/accessi_laboratorio.html', r:['admin'] }
 ];
 const EMAIL = { 'gelateriagreed@gmail.com':'admin', 'team.greedfrascati@gmail.com':'staff' };
-let RUOLO = null;
-const visibili = () => PROGRAMMI.filter(p => p.r.includes(RUOLO));
+let RUOLO = null, POST = null;
+const NOMI_POST = { banco:'🛒 Banco (Tablet)', laboratorio:'👨‍🍳 Laboratorio', ufficio:'🏢 Ufficio' };
+const visibili = () => PROGRAMMI.filter(p => p.r.includes(RUOLO)
+  && (RUOLO === 'admin' ? (!p.pc || p.pc === POST) : (p.post || []).includes(POST)));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 function disegna() {
@@ -89,21 +90,59 @@ function apri(id) {
   const p = visibili().find(x => x.id === id); if (!p) return;
   document.getElementById('v-' + id)?.classList.add('on');
   document.getElementById('titolo').textContent = p.e + ' ' + p.n;
-  if (p.pc) { window.open(p.u, '_blank', 'noopener'); return; }       // i programmi installati sul PC si aprono a parte
+  if (p.pc) { apriSulPc(p); return; }
   est.href = p.u; est.style.display = 'inline';
   ben.style.display = 'none'; vista.style.display = 'block';
   if (vista.dataset.id !== id) { vista.src = p.u; vista.dataset.id = id; }
   try { localStorage.setItem('greed_piattaforma_ultimo', id); } catch (e) {}
   if (window.innerWidth <= 800) document.getElementById('menu').classList.add('chiuso');
 }
+function scegliPostazione(forza) {
+  try { POST = localStorage.getItem('greed_postazione'); } catch (e) {}
+  if (POST && !forza) return true;
+  document.getElementById('benvenuto').style.display = 'block'; document.getElementById('vista').style.display = 'none';
+  document.getElementById('benvenuto').innerHTML = `<h2>Dove si trova questo dispositivo?</h2><div style="color:#6a6a5a;font-size:14px">Lo chiedo una volta sola: così il menu mostra solo quello che serve qui.</div>
+    <div class="griglia" style="margin-top:18px">${Object.entries(NOMI_POST).filter(([k]) => RUOLO === 'admin' || k !== 'ufficio').map(([k, n]) =>
+      `<button class="carta" onclick="impostaPostazione('${k}')"><div class="e">${n.split(' ')[0]}</div><b>${n.split(' ').slice(1).join(' ')}</b></button>`).join('')}</div>`;
+  document.getElementById('voci').innerHTML = '';
+  return false;
+}
+function impostaPostazione(k) {
+  POST = k; try { localStorage.setItem('greed_postazione', k); localStorage.removeItem('greed_piattaforma_ultimo'); } catch (e) {}
+  entra(null);
+}
+// I programmi installati sul PC funzionano solo se il loro avvio è acceso: controllo prima di aprire
+async function apriSulPc(p) {
+  const ben = document.getElementById('benvenuto'), vista = document.getElementById('vista');
+  vista.style.display = 'none'; ben.style.display = 'block'; document.getElementById('esterno').style.display = 'none';
+  ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="color:#6a6a5a">Controllo che il programma sia acceso…</div>`;
+  // il server del PC ci mette un po' ad accendersi: riprovo per 40 secondi prima di arrendermi
+  const prova = async () => { try { const c = new AbortController(); setTimeout(() => c.abort(), 3000); await fetch(p.u, { mode: 'no-cors', signal: c.signal, cache: 'no-store' }); return true; } catch (e) { return false; } };
+  let ok = false;
+  for (let t = 0; t < 40 && !ok; t += 4) {
+    ok = await prova();
+    if (!ok) { ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="color:#6a6a5a;font-size:15px;line-height:1.6">Aspetto che si accenda… (${t + 4}/40 secondi)<br>Se non l'hai già fatto, sul desktop fai doppio clic su <b>${esc(p.avvio)}</b>.</div>`; await new Promise(r => setTimeout(r, 1000)); }
+  }
+  if (ok) {
+    window.open(p.u, '_blank');
+    ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="color:#6a6a5a;font-size:14px;line-height:1.6">Si è aperto in una scheda a parte.<br>Se non lo vedi, <a href="${p.u}" target="_blank">premi qui</a>.</div>`;
+  } else {
+    ben.innerHTML = `<h2>${p.e} ${esc(p.n)}</h2><div style="background:#fff;border:1px solid #e3d8c2;border-radius:14px;padding:20px;max-width:560px;font-size:15px;line-height:1.6">
+      Il programma non è acceso su questo PC.<br><br><b>1.</b> Sul desktop fai doppio clic su <b>${esc(p.avvio)}</b>.<br><b>2.</b> Aspetta qualche secondo, poi premi qui sotto.
+      <div style="margin-top:16px"><button class="carta" style="padding:10px 18px;display:inline-block" onclick="apriSulPc(PROGRAMMI.find(x=>x.id==='${p.id}'))"><b style="margin:0">Riprova</b></button></div>
+      <div style="margin-top:12px;font-size:12.5px;color:#8a7a5a">Funziona solo sul PC ${p.pc === 'laboratorio' ? 'del laboratorio' : "dell'ufficio"}.</div></div>`;
+  }
+}
 function entra(email) {
-  RUOLO = EMAIL[email];
+  if (email) RUOLO = EMAIL[email];
   document.getElementById('login').style.display = 'none';
-  document.getElementById('chi').textContent = RUOLO === 'admin' ? 'Dario' : 'Staff';
+  if (!scegliPostazione(false)) { document.getElementById('chi').textContent = RUOLO === 'admin' ? 'Dario' : 'Staff'; return; }
+  document.getElementById('chi').innerHTML = (RUOLO === 'admin' ? 'Dario' : 'Staff') + ` · <a href="#" onclick="scegliPostazione(true);return false" style="color:#e8c766">${NOMI_POST[POST]}</a>`;
   disegna();
   let ultimo = null; try { ultimo = localStorage.getItem('greed_piattaforma_ultimo'); } catch (e) {}
-  if (RUOLO === 'staff' && !ultimo) ultimo = 'banco';            // il Tablet parte dalla cassa
-  if (ultimo && visibili().some(p => p.id === ultimo && !p.pc)) apri(ultimo);
+  if (!ultimo && POST === 'banco') ultimo = 'banco';             // il Tablet parte dalla cassa
+  if (!ultimo && POST === 'laboratorio') ultimo = 'lab-pc';
+  if (ultimo && visibili().some(p => p.id === ultimo)) apri(ultimo); else apri('home');
 }
 function avvia() {
   firebase.initializeApp({ apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", authDomain:"club-greed.firebaseapp.com", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" }, 'piattaforma');
