@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fornitori e schede tecniche — GREED</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--verde:#1f3a1a;--verde2:#2d6a4f;--crema:#f6f1e6;--oro:#c8a34a;--rosso:#b33a2b;--arancio:#c27a12}
+*{box-sizing:border-box} body{margin:0;font-family:'Outfit',sans-serif;background:var(--crema);color:#2a2a22}
+header{background:var(--verde);color:#f6f1e6;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-family:'Cormorant Garamond',serif;font-size:24px;margin:0;letter-spacing:.04em}
+main{max-width:1200px;margin:0 auto;padding:18px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tab{background:#fff;border:1px solid #d8ccb4;border-radius:9px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer}
+.tab.on{background:var(--verde2);color:#fff;border-color:var(--verde2)}
+.box{background:#fff;border:1px solid #e3d8c2;border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.riga{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nome{font-weight:700;font-size:16px;color:var(--verde)} .muted{color:#6a6a5a;font-size:13px}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:10px;margin-right:4px}
+.ok{background:#e4f2e7;color:#2d6a4f} .warn{background:#fdf0d5;color:#8a5a00} .ko{background:#fbe4e0;color:#a33}
+button.b{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:8px;padding:7px 12px;cursor:pointer;background:var(--verde2);color:#fff}
+button.b2{background:#eef2ea;color:var(--verde2)} button.b:disabled{opacity:.45;cursor:not-allowed}
+input,select,textarea{font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d8ccb4;border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:13px} td,th{padding:6px 8px;border-bottom:1px solid #f0e8d8;text-align:left;vertical-align:top} th{font-size:11.5px;color:#7a6a58;text-transform:uppercase;letter-spacing:.04em}
+.prod{font-size:13px;margin:3px 0}
+#login{max-width:420px;margin:60px auto;text-align:center}
+.cerca{padding:9px 12px;width:280px;max-width:100%}
+.nota{font-size:12.5px;color:#6a6a5a;line-height:1.5}
+</style></head><body>
+<header><h1>🏭 Fornitori · Schede tecniche · Scadenze</h1><span id="chi" class="muted" style="color:#cfd8c4"></span></header>
+<main>
+<div id="login" class="box" style="display:none"><p>Accedi con l'account GREED.</p><button class="b" onclick="accedi()">Accedi con Google</button><div id="err" class="muted" style="color:#a33;margin-top:8px"></div></div>
+<div id="app" style="display:none">
+  <div class="tabs">
+    <button class="tab on" id="t-forn" onclick="vista('forn')">🏭 Fornitori</button>
+    <button class="tab" id="t-schede" onclick="vista('schede')">📄 Schede tecniche <span id="n-abb"></span></button>
+    <button class="tab" id="t-lotti" onclick="vista('lotti')">⏰ Scadenze lotti <span id="n-lotti"></span></button>
+    <input class="cerca" id="cerca" placeholder="Cerca fornitore o prodotto…" oninput="render()">
+  </div>
+  <div id="contenuto"></div>
+</div>
+</main>
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm = s => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+const slug = s => norm(s).toLowerCase().replace(/ /g, '-').slice(0, 120) || 'senza-nome';
+const giorno = t => { const d = t && t.toDate ? t.toDate() : (t ? new Date(t) : null); return d && !isNaN(d) ? d.toLocaleDateString('it-IT') : '—'; };
+const ms = t => t && t.toDate ? t.toDate().getTime() : (t ? new Date(t).getTime() : 0);
+const GG = 86400000;
+let db, DARIO = false, VISTA = 'forn';
+let ACQ = [], FORN = {}, SCHEDE = [], RICH = [], SCAD = {};
+
+// ── Fornitori e prodotti ricavati dalle entrate in magazzino (DDT e fatture) ──
+function fornitoriDaAcquisti() {
+  const m = {};
+  ACQ.forEach(a => {
+    if (!a.fornitore) return;
+    const id = slug(a.fornitore);
+    const f = m[id] || (m[id] = { id, nome: a.fornitore, prodotti: {}, ultimo: 0 });
+    const p = a.ingrediente || a.descrizioneFornitore; if (!p) return;
+    f.prodotti[norm(p)] = f.prodotti[norm(p)] || p;
+    f.ultimo = Math.max(f.ultimo, ms(a.data));
+  });
+  Object.values(FORN).forEach(x => { if (!m[x.id]) m[x.id] = { id: x.id, nome: x.nome, prodotti: {}, ultimo: 0 }; });
+  return Object.values(m).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+}
+// stato della scheda tecnica di un prodotto: ok / in scadenza (30 gg) / mancante o scaduta
+function statoScheda(fid, pnorm) {
+  const s = SCHEDE.filter(x => x.fornitoreId === fid && (x.prodotti || []).map(norm).includes(pnorm)).sort((a, b) => ms(b.scadenza) - ms(a.scadenza))[0];
+  if (!s) return { st: 'ko', t: 'manca' };
+  const resto = ms(s.scadenza) - Date.now();
+  if (resto < 0) return { st: 'ko', t: 'scaduta il ' + giorno(s.scadenza), s };
+  if (resto < 30 * GG) return { st: 'warn', t: 'scade il ' + giorno(s.scadenza), s };
+  return { st: 'ok', t: 'valida fino al ' + giorno(s.scadenza), s };
+}
+function renderForn(filtro) {
+  const lista = fornitoriDaAcquisti().filter(f => !filtro || norm(f.nome).includes(filtro) || Object.keys(f.prodotti).some(p => p.includes(filtro)));
+  if (!lista.length) return '<div class="box muted">Nessun fornitore trovato. I fornitori compaiono da soli quando carichi DDT o fatture.</div>';
+  return lista.map(f => {
+    const c = FORN[f.id] || {}, prodotti = Object.entries(f.prodotti);
+    const stati = prodotti.map(([pn, p]) => ({ p, ...statoScheda(f.id, pn) }));
+    const manc = stati.filter(x => x.st === 'ko'), scad = stati.filter(x => x.st === 'warn');
+    const ultimaRich = RICH.filter(r => r.fornitoreId === f.id).sort((a, b) => ms(b.creata) - ms(a.creata))[0];
+    const senzaMail = !String(c.email || '').includes('@');
+    return `<div class="box">
+      <div class="riga"><span class="nome">${esc(f.nome)}</span>
+        <span class="chip ok">✅ ${stati.length - manc.length - scad.length}</span>${scad.length ? `<span class="chip warn">⚠️ ${scad.length} in scadenza</span>` : ''}${manc.length ? `<span class="chip ko">❌ ${manc.length} senza scheda</span>` : ''}
+        <span style="flex:1"></span>
+        ${DARIO ? `<button class="b" ${senzaMail || !manc.length ? 'disabled' : ''} onclick="chiedi('${f.id}','schede')" title="${senzaMail ? 'Prima inserisci l\'email del fornitore' : ''}">📧 Chiedi schede mancanti (${manc.length})</button>
+        <button class="b b2" ${senzaMail || !scad.length ? 'disabled' : ''} onclick="chiedi('${f.id}','rinnovo')">🔁 Chiedi rinnovo (${scad.length})</button>` : ''}
+      </div>
+      <div class="riga" style="margin-top:8px">
+        <input placeholder="Referente" value="${esc(c.referente || '')}" onchange="salvaForn('${f.id}','referente',this.value)" style="width:170px">
+        <input placeholder="Email (più indirizzi separati da virgola)" value="${esc(c.email || '')}" onchange="salvaForn('${f.id}','email',this.value)" style="width:320px;${senzaMail ? 'border-color:#d9a' : ''}">
+        <input placeholder="Telefono" value="${esc(c.telefono || '')}" onchange="salvaForn('${f.id}','telefono',this.value)" style="width:140px">
+        ${ultimaRich ? `<span class="muted">Ultima richiesta: ${giorno(ultimaRich.creata)} · ${esc({ approvata: 'in invio…', inviata: 'inviata ✓', errore: '⚠️ ' + (ultimaRich.errore || 'errore') }[ultimaRich.stato] || ultimaRich.stato)}</span>` : ''}
+      </div>
+      <details style="margin-top:8px"><summary class="muted" style="cursor:pointer">Prodotti (${prodotti.length})</summary>
+        ${stati.map(x => `<div class="prod"><span class="chip ${x.st}">${x.st === 'ok' ? '✅' : x.st === 'warn' ? '⚠️' : '❌'} ${esc(x.t)}</span> ${esc(x.p)}${x.s && x.s.url ? ` · <a href="${x.s.url}" target="_blank">apri PDF</a>` : ''}</div>`).join('') || '<div class="muted">Nessun prodotto registrato.</div>'}
+      </details></div>`;
+  }).join('');
+}
+function renderSchede(filtro) {
+  const lista = SCHEDE.filter(s => !filtro || norm(s.fornitore + ' ' + s.file + ' ' + (s.prodotti || []).join(' ')).includes(filtro))
+    .sort((a, b) => (b.daAbbinare ? 1 : 0) - (a.daAbbinare ? 1 : 0) || ms(b.ricevutaIl) - ms(a.ricevutaIl));
+  const forn = fornitoriDaAcquisti();
+  let h = `<div class="box nota">I PDF che i fornitori inviano rispondendo alle richieste arrivano qui da soli (controllo ogni 30 minuti). Abbina ogni PDF ai prodotti a cui si riferisce: la scadenza è impostata a 12 mesi e puoi cambiarla.</div>`;
+  if (!lista.length) return h + '<div class="box muted">Nessuna scheda tecnica archiviata per ora.</div>';
+  h += lista.map(s => {
+    const f = forn.find(x => x.id === s.fornitoreId), prodotti = f ? Object.values(f.prodotti) : [];
+    return `<div class="box"><div class="riga"><span class="nome">📄 ${esc(s.file)}</span>${s.daAbbinare ? '<span class="chip warn">da abbinare</span>' : ''}
+      <span class="muted">${esc(s.fornitore)} · ricevuta il ${giorno(s.ricevutaIl)}</span><span style="flex:1"></span>
+      ${s.url ? `<a class="b b2" style="text-decoration:none;padding:7px 12px;border-radius:8px" href="${s.url}" target="_blank">Apri PDF</a>` : ''}
+      <label class="muted">Scade il <input type="date" value="${s.scadenza ? new Date(ms(s.scadenza)).toISOString().slice(0, 10) : ''}" onchange="salvaScheda('${s.id}',{scadenza:firebase.firestore.Timestamp.fromDate(new Date(this.value))})"></label></div>
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px 14px">${prodotti.map(p => `<label class="prod"><input type="checkbox" ${(s.prodotti || []).map(norm).includes(norm(p)) ? 'checked' : ''} onchange="abbina('${s.id}',${JSON.stringify(p).replace(/"/g, '&quot;')},this.checked)"> ${esc(p)}</label>`).join('') || '<span class="muted">Nessun prodotto di questo fornitore in magazzino.</span>'}</div></div>`;
+  }).join('');
+  return h;
+}
+// ── Lotti degli ultimi 6 mesi con la loro scadenza ──
+function lotti() {
+  return ACQ.filter(a => a.lotto && (Date.now() - ms(a.data)) < 183 * GG).map(a => ({ ...a, sc: SCAD[a.id] || {} }))
+    .sort((a, b) => ms(b.data) - ms(a.data));
+}
+function renderLotti(filtro) {
+  const L = lotti().filter(a => !filtro || norm(a.fornitore + ' ' + (a.ingrediente || '') + ' ' + a.lotto).includes(filtro));
+  const oggi = Date.now();
+  const scaduti = L.filter(a => a.sc.scadenza && ms(a.sc.scadenza) < oggi), vicini = L.filter(a => a.sc.scadenza && ms(a.sc.scadenza) >= oggi && ms(a.sc.scadenza) - oggi < 15 * GG);
+  const senza = L.filter(a => !a.sc.scadenza && !a.sc.senzaScadenza);
+  const perForn = {}; senza.forEach(a => (perForn[slug(a.fornitore)] = perForn[slug(a.fornitore)] || []).push(a));
+  let h = `<div class="box"><div class="riga">${scaduti.length ? `<span class="chip ko">⛔ ${scaduti.length} scaduti</span>` : ''}${vicini.length ? `<span class="chip warn">⏰ ${vicini.length} scadono entro 15 giorni</span>` : ''}<span class="chip ko">❓ ${senza.length} senza data di scadenza</span></div>
+    <div class="nota" style="margin-top:6px">Scrivi la scadenza leggendola dall'etichetta o dal DDT. Se non la trovi, con il pulsante del fornitore parte la richiesta via mail (dopo la tua approvazione). "Senza scadenza" vale per i prodotti che non ne hanno (per esempio sale, zucchero).</div>
+    ${DARIO && Object.keys(perForn).length ? `<div class="riga" style="margin-top:8px">${Object.entries(perForn).map(([fid, arr]) => `<button class="b b2" ${String((FORN[fid] || {}).email || '').includes('@') ? '' : 'disabled title="Manca l\'email del fornitore"'} onclick="chiedi('${fid}','scadenze')">📧 ${esc(arr[0].fornitore)}: chiedi ${arr.length} scadenze</button>`).join('')}</div>` : ''}</div>`;
+  h += `<div class="box" style="overflow-x:auto"><table><tr><th>Arrivo</th><th>Fornitore</th><th>Prodotto</th><th>Lotto</th><th>Scadenza</th><th></th></tr>` +
+    L.map(a => { const s = a.sc.scadenza ? ms(a.sc.scadenza) : null, st = s === null ? (a.sc.senzaScadenza ? '' : 'ko') : s < oggi ? 'ko' : s - oggi < 15 * GG ? 'warn' : 'ok';
+      return `<tr><td>${giorno(a.data)}</td><td>${esc(a.fornitore)}</td><td>${esc(a.ingrediente || a.descrizioneFornitore)}</td><td>${esc(a.lotto)}</td>
+        <td><input type="date" value="${a.sc.scadenza || ''}" onchange="salvaScad('${a.id}',{scadenza:this.value||null})" style="${st === 'ko' ? 'border-color:#d9a' : st === 'warn' ? 'border-color:#e8c06a' : ''}"></td>
+        <td><label class="muted"><input type="checkbox" ${a.sc.senzaScadenza ? 'checked' : ''} onchange="salvaScad('${a.id}',{senzaScadenza:this.checked})"> senza scadenza</label></td></tr>`; }).join('') + '</table></div>';
+  return h;
+}
+function render() {
+  const f = norm(document.getElementById('cerca').value);
+  const abb = SCHEDE.filter(s => s.daAbbinare).length, mancano = lotti().filter(a => !a.sc.scadenza && !a.sc.senzaScadenza).length;
+  document.getElementById('n-abb').textContent = abb ? `(${abb} nuove)` : '';
+  document.getElementById('n-lotti').textContent = mancano ? `(${mancano} da completare)` : '';
+  document.getElementById('contenuto').innerHTML = VISTA === 'forn' ? renderForn(f) : VISTA === 'schede' ? renderSchede(f) : renderLotti(f);
+}
+function vista(v) { VISTA = v; ['forn', 'schede', 'lotti'].forEach(x => document.getElementById('t-' + x).classList.toggle('on', x === v)); render(); }
+// ── Salvataggi ──
+async function salvaForn(id, campo, val) {
+  const nome = (fornitoriDaAcquisti().find(x => x.id === id) || {}).nome || id;
+  FORN[id] = { ...(FORN[id] || { id, nome }), [campo]: val.trim() };
+  await db.collection('fornitori').doc(id).set({ nome, [campo]: val.trim(), _ts: Date.now() }, { merge: true });
+  render();
+}
+async function salvaScheda(id, dati) { await db.collection('schede_tecniche').doc(id).set(dati, { merge: true }); }
+async function abbina(id, p, on) {
+  const s = SCHEDE.find(x => x.id === id); let pr = (s.prodotti || []).filter(x => norm(x) !== norm(p)); if (on) pr.push(p);
+  await salvaScheda(id, { prodotti: pr, daAbbinare: pr.length === 0 });
+}
+async function salvaScad(id, dati) { await db.collection('scadenze_lotti').doc(id).set({ ...dati, _ts: Date.now() }, { merge: true }); }
+// ── Richiesta al fornitore: si vede il testo, Dario approva, parte la mail ──
+async function chiedi(fid, tipo) {
+  const f = fornitoriDaAcquisti().find(x => x.id === fid), c = FORN[fid] || {};
+  let prodotti = [];
+  if (tipo === 'scadenze') prodotti = lotti().filter(a => slug(a.fornitore) === fid && !a.sc.scadenza && !a.sc.senzaScadenza).map(a => `${a.ingrediente || a.descrizioneFornitore} — lotto ${a.lotto} (consegna del ${giorno(a.data)}${a.numero ? ', doc. n. ' + a.numero : ''})`);
+  else prodotti = Object.entries(f.prodotti).filter(([pn]) => statoScheda(fid, pn).st === (tipo === 'rinnovo' ? 'warn' : 'ko')).map(([, p]) => p);
+  if (!prodotti.length) return;
+  const cosa = tipo === 'scadenze' ? 'la data di scadenza dei lotti' : tipo === 'rinnovo' ? 'l\'aggiornamento delle schede tecniche' : 'le schede tecniche';
+  if (!confirm(`Invio a ${f.nome} (${c.email})\nda gelateriagreed@gmail.com la richiesta per ${cosa} di:\n\n• ${prodotti.join('\n• ')}\n\nConfermi l'invio?`)) return;
+  await db.collection('richieste_fornitori').add({ fornitoreId: fid, fornitore: f.nome, tipo, prodotti, stato: 'approvata', creata: firebase.firestore.FieldValue.serverTimestamp(), da: 'Dario' });
+  alert('Richiesta approvata: la mail parte entro pochi secondi.');
+}
+// ── Avvio ──
+function avvia() {
+  firebase.initializeApp({ apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", authDomain:"club-greed.firebaseapp.com", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" }, 'fornitori');
+  const app = firebase.app('fornitori'); db = app.firestore();
+  app.auth().onAuthStateChanged(u => {
+    const ok = u && ['gelateriagreed@gmail.com', 'team.greedfrascati@gmail.com'].includes(u.email);
+    document.getElementById('login').style.display = ok ? 'none' : 'block'; document.getElementById('app').style.display = ok ? 'block' : 'none';
+    if (u && !ok) { document.getElementById('err').textContent = 'Account non autorizzato.'; app.auth().signOut(); }
+    if (!ok) return;
+    DARIO = u.email === 'gelateriagreed@gmail.com';
+    document.getElementById('chi').textContent = DARIO ? 'Dario' : 'Staff (le richieste ai fornitori le approva Dario)';
+    db.collection('acquistiStorico').onSnapshot(s => { ACQ = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
+    db.collection('fornitori').onSnapshot(s => { FORN = {}; s.forEach(d => FORN[d.id] = { id: d.id, ...d.data() }); render(); });
+    db.collection('schede_tecniche').onSnapshot(s => { SCHEDE = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
+    db.collection('richieste_fornitori').onSnapshot(s => { RICH = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); });
+    db.collection('scadenze_lotti').onSnapshot(s => { SCAD = {}; s.forEach(d => SCAD[d.id] = d.data()); render(); });
+  });
+  window.accedi = () => { const p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); app.auth().signInWithPopup(p).catch(e => { document.getElementById('err').textContent = e.message; }); };
+}
+if (!window.__PROVA) avvia();
+</script></body></html>
