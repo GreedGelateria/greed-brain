@@ -772,7 +772,7 @@ window.esciGoogle = function(){ if (confirm('Scollegare l\'account Google da que
       <div class="field-group"><label>Nome Gusto</label><input type="text" id="r-nome" placeholder="es. PISTACCHIO SICILIANO"></div>
       <div class="grid2">
         <div class="field-group"><label>Prezzo Vendita (€/kg)</label><input type="number" id="r-pv" value="28" min="0" step="0.5"></div>
-        <div class="field-group"><label>Tipo prodotto</label><select id="r-tipo"><option value="">Gelato (default)</option><option value="semifreddo">Semifreddo</option><option value="torta">Torta gelato</option></select></div>
+        <div class="field-group"><label>Tipo prodotto</label><select id="r-tipo" onchange="aggiornaTitoloIng()"><option value="">Gelato (default)</option><option value="semifreddo">Semifreddo</option><option value="torta">Torta gelato</option></select></div>
         <div class="field-group"><label>Allergeni</label><input type="text" id="r-allergeni" placeholder="es. Frutta a guscio"></div>
       </div>
       <div class="field-group"><label>Istruzione finale</label><input type="text" id="r-instfinale" placeholder="es. Porta a 85°C, poi manteca"></div>
@@ -780,7 +780,7 @@ window.esciGoogle = function(){ if (confirm('Scollegare l\'account Google da que
         <label>Lista ingredienti etichetta <button onclick="autoListaIng()" style="margin-left:8px;padding:3px 10px;background:var(--cream2);border:1px solid var(--gold);border-radius:6px;font-size:.7rem;color:var(--brown2);cursor:pointer;font-family:'DM Sans',sans-serif">↺ Auto da ingredienti</button></label>
         <textarea id="r-listaing" placeholder="LATTE INTERO, PANNA, Zucchero di canna..." rows="2" style="resize:vertical"></textarea>
       </div>
-      <div class="section-title">Ingredienti (dose in g per 1 kg di prodotto)</div>
+      <div class="section-title" id="ing-titolo">Ingredienti (dose in g per 1 kg di prodotto)</div>
       <datalist id="ing-names-list"></datalist>
       <div id="ing-editor"></div>
       <div id="ing-totale" style="text-align:right;padding:6px 4px 2px;font-size:.85rem;color:var(--brown2);font-weight:700">
@@ -1792,26 +1792,29 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 // =============================================
 // PRODUZIONE
 // =============================================
+// Nome sicuro dentro un onclick (apostrofi, virgolette, accenti) e dentro l'HTML
+function jsArg(s){ return JSON.stringify(String(s)).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function htmlEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function renderGusti(filter=''){
   const recs = getAllRecipes();
   const keys = Object.keys(recs).filter(n=>!filter||n.toLowerCase().includes(filter.toLowerCase()));
   document.getElementById('gusti-grid').innerHTML = keys.map((n,i) => {
     const sel = selectedGusto === n;
     const em = emoji(n);
-    return `<div onclick="selectGusto('${n}')" style="
+    return `<div onclick="selectGusto(${jsArg(n)})" style="
         display:flex;align-items:center;gap:12px;padding:11px 14px;
         background:${sel ? 'linear-gradient(135deg,#FFF8F0,#FFF0DC)' : 'white'};
         border:2px solid ${sel ? 'var(--gold)' : 'var(--cream2)'};
         border-radius:12px;cursor:pointer;transition:all .15s;
         box-shadow:${sel ? '0 4px 18px rgba(212,148,58,.2)' : 'none'}">
       <div style="font-size:1.4rem;flex-shrink:0">${em}</div>
-      <div style="flex:1;font-weight:700;font-size:.88rem;color:var(--brown)">${n}</div>
+      <div style="flex:1;font-weight:700;font-size:.88rem;color:var(--brown)">${htmlEsc(n)}${(recs[n]&&recs[n].tipo)?` <span style="font-size:.68rem;font-weight:600;color:var(--brown2);background:var(--cream2);border-radius:8px;padding:1px 7px">${recs[n].tipo==='torta'?'torta gelato':'semifreddo'}</span>`:''}</div>
       <div onclick="event.stopPropagation()" style="display:flex;gap:4px;align-items:center">
-        <button style="background:var(--gold);border:none;border-radius:6px;padding:3px 8px;font-size:.75rem;cursor:pointer;color:white;font-weight:700" onclick="stampaEtichettaDiretta('${n}')" title="Stampa etichetta TSC">🖨️</button>
+        <button style="background:var(--gold);border:none;border-radius:6px;padding:3px 8px;font-size:.75rem;cursor:pointer;color:white;font-weight:700" onclick="stampaEtichettaDiretta(${jsArg(n)})" title="Stampa etichetta TSC">🖨️</button>
         ${isAdmin ? `
-        <button class="gact-btn dup" onclick="duplicaGusto('${n}')" title="Duplica">⧉</button>
-        <button class="gact-btn del" onclick="deleteRicettaByName('${n}')" title="Elimina">🗑</button>
-        <button style="background:var(--cream2);border:none;border-radius:6px;padding:3px 8px;font-size:.75rem;cursor:pointer;color:var(--brown2)" onclick="openNuovaRicetta('${n}')">✏️</button>` : ''}
+        <button class="gact-btn dup" onclick="duplicaGusto(${jsArg(n)})" title="Duplica">⧉</button>
+        <button class="gact-btn del" onclick="deleteRicettaByName(${jsArg(n)})" title="Elimina">🗑</button>
+        <button style="background:var(--cream2);border:none;border-radius:6px;padding:3px 8px;font-size:.75rem;cursor:pointer;color:var(--brown2)" onclick="openNuovaRicetta(${jsArg(n)})">✏️</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -1865,6 +1868,10 @@ function toggleHalfStep(btn){ QTY_STEP = QTY_STEP===1 ? 0.5 : 1; btn.style.backg
 // =============================================
 function startProduzione(){
   if(!selectedGusto) return;
+  if(!ricettaPesabile(getRecipe(selectedGusto))){
+    alert('"' + selectedGusto + '" ha solo la lista degli ingredienti, senza dosi: serve per etichette e schede, non per la pesata.\nSe lo produci in laboratorio, apri la ricetta (✏️) e aggiungi le dosi.');
+    return;
+  }
   curRecipe = getRecipe(selectedGusto);
   curIngs = curRecipe.ingredienti;
   curStep = 0;
@@ -2600,7 +2607,7 @@ function openCaricoMagazzino(){
         style="padding:7px 8px;border:1.5px solid var(--cream2);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.83rem;text-align:center;width:100%">
       <input type="number" min="0" step="100" value="${Math.round(d.min)}" id="mag-min-${sid}"
         style="padding:7px 8px;border:1.5px solid var(--cream2);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.83rem;text-align:center;width:100%">
-      <button onclick="delMagRow('${n}')" style="width:32px;height:32px;background:#fee2e2;border:none;border-radius:8px;color:var(--red);font-size:.9rem;cursor:pointer">✕</button>
+      <button onclick="delMagRow(${jsArg(n)})" style="width:32px;height:32px;background:#fee2e2;border:none;border-radius:8px;color:var(--red);font-size:.9rem;cursor:pointer">✕</button>
     </div>`;
   }).join('');
   document.getElementById('modal-mag').classList.add('open');
@@ -3017,6 +3024,7 @@ function openNuovaRicetta(nome=null, isDuplica=false){
   document.getElementById('r-nome').disabled = !!nome && !isDuplica;
   document.getElementById('r-pv').value=r?r.pv:28;
   document.getElementById('r-tipo').value=(r&&r.tipo)||'';
+  aggiornaTitoloIng();
   document.getElementById('r-allergeni').value=r?r.allergeni:'';
   document.getElementById('r-instfinale').value=r?r.inst_finale:'';
   document.getElementById('r-listaing').value=r?r.lista_ing:'';
@@ -3044,13 +3052,23 @@ function buildIngNamesList(){
   const dl = document.getElementById('ing-names-list');
   if(dl) dl.innerHTML = [...names].sort().map(n=>`<option value="${n}">`).join('');
 }
+function tipoSoloLista(){ const t=document.getElementById('r-tipo').value; return t==='semifreddo'||t==='torta'; }
+function aggiornaTitoloIng(){
+  const el=document.getElementById('ing-titolo'); if(!el) return;
+  el.textContent = tipoSoloLista()
+    ? 'Ingredienti in ordine di quantità (dose facoltativa per semifreddi e torte)'
+    : 'Ingredienti (dose in g per 1 kg di prodotto)';
+}
+function ricettaPesabile(r){ return !!(r && (r.ingredienti||[]).some(i=>(+i.d||0)>0)); }
 function autoListaIng(){
   // Costruisce la lista ingredienti dall'editor corrente (ordine dose decrescente)
   const rows = [...document.querySelectorAll('#ing-editor .ing-row')];
   const ings = rows.map(r=>{
     const inputs = r.querySelectorAll('input,select');
     return {nome: inputs[0].value.trim(), d: parseFloat(inputs[1].value)||0};
-  }).filter(i=>i.nome&&i.d>0).sort((a,b)=>b.d-a.d);
+  }).filter(i=>i.nome&&(i.d>0||tipoSoloLista()));
+  // con le dosi: ordine per quantità; senza dosi (semifreddi): l'ordine in cui li hai scritti
+  if(ings.some(i=>i.d>0)) ings.sort((a,b)=>b.d-a.d);
   document.getElementById('r-listaing').value = ings.map(i=>i.nome).join(', ');
 }
 
@@ -3116,7 +3134,7 @@ function addIngRow(nome='',dose='',ins=''){
   const insOpts = INS_OPTIONS.map(o=>`<option value="${o}" ${o===ins?'selected':''}>${o}</option>`).join('');
   div.innerHTML = `
     <span class="drag-handle" title="Trascina per riordinare">⠿</span>
-    <input type="text" list="ing-names-list" placeholder="Ingrediente" value="${nome}" style="flex:2;min-width:0">
+    <input type="text" list="ing-names-list" placeholder="Ingrediente" value="${htmlEsc(nome)}" style="flex:2;min-width:0">
     <input type="number" placeholder="g/kg" value="${dose}" min="0" step="0.1" style="flex:0 0 72px;cursor:pointer" readonly
       onclick="openNumpad(this,'Dose '+this.closest('.ing-row').querySelector('input').value+' (g/kg)')">
     <select style="flex:1;padding:7px 8px;border:1.5px solid var(--cream2);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.8rem;background:white;color:var(--brown);min-width:0">${insOpts}<option value="${ins&&!INS_OPTIONS.includes(ins)?ins:''}" ${ins&&!INS_OPTIONS.includes(ins)?'selected':''} style="display:${ins&&!INS_OPTIONS.includes(ins)?'block':'none'}">${ins}</option></select>
@@ -3175,8 +3193,8 @@ function saveRicetta(){
     const dose = parseFloat(r.querySelector('input[type=number]')?.value)||0;
     const ins  = r.querySelector('select')?.value || '';
     return {nome, d:dose, ins};
-  }).filter(i=>i.nome&&i.d>0);
-  if(!ings.length){alert('Aggiungi almeno un ingrediente con dose > 0.');return;}
+  }).filter(i=>i.nome&&(i.d>0||tipoSoloLista()));
+  if(!ings.length){alert(tipoSoloLista() ? 'Aggiungi almeno un ingrediente.' : 'Aggiungi almeno un ingrediente con dose > 0.');return;}
   if(ings.some(i=>i.d<0)){alert('Le dosi non possono essere negative.');return;}
   const nomeField = document.getElementById('r-nome');
   const nome = nomeField.disabled ? editingRicetta : document.getElementById('r-nome').value.trim();
@@ -3191,6 +3209,7 @@ function saveRicetta(){
   if(!nomeField.disabled && editingRicetta && editingRicetta !== nome) {
     delete customRecipes[editingRicetta];
   }
+  if(!document.getElementById('r-listaing').value.trim()) autoListaIng();
   const r={
     nome, ingredienti:ings,
     pv:parseFloat(document.getElementById('r-pv').value)||28,
