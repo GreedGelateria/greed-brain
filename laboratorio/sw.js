@@ -1,7 +1,7 @@
 // Service worker del laboratorio GREED: il gestionale e il bilanciatore si aprono anche senza internet.
 // Pagine: prima la rete (così gli aggiornamenti arrivano subito), se manca internet la copia salvata.
 // Librerie e caratteri (Firebase, Google Fonts): copia salvata, aggiornata in sottofondo.
-const CACHE = 'greed-laboratorio-v1';
+const CACHE = 'greed-laboratorio-v2';
 const PAGINE = ['./', './index.html', './bilanciatore.html'];
 
 self.addEventListener('install', e => {
