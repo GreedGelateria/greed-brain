@@ -393,6 +393,7 @@ select.fl-sel:focus{border-color:var(--fl-accent)}
             <option value="acqua_grassa">🌰 Base acqua con grassi (vegano)</option>
             <option value="latte">🥛 Base latte</option>
             <option value="ricca">🍮 Crema ricca</option>
+            <option value="semifreddo">🍨 Semifreddo</option>
           </select>
           <span id="profilo-auto-hint" style="font-size:10px;color:var(--brown-light);padding-left:4px"></span>
         </div>
@@ -466,7 +467,7 @@ select.fl-sel:focus{border-color:var(--fl-accent)}
           <div class="sem sem-neu" id="s-pac">•</div>
         </div>
         <div class="param-row">
-          <div class="param-label"><strong>POD %</strong><span>Dolcezza</span></div>
+          <div class="param-label"><strong id="lbl-pod">POD %</strong><span id="lbl-pod-sub">Dolcezza</span></div>
           <div class="param-val" id="p-pod">—</div>
           <div class="sem sem-neu" id="s-pod">•</div>
         </div>
@@ -629,6 +630,7 @@ select.fl-sel:focus{border-color:var(--fl-accent)}
       <button class="r-tab" data-cat="acqua" onclick="setRTab(this)">💧 Base Acqua <span class="r-count" id="rc-acqua">0</span></button>
       <button class="r-tab" data-cat="gastro" onclick="setRTab(this)">🧀 Gastronomici <span class="r-count" id="rc-gastro">0</span></button>
       <button class="r-tab" data-cat="keto" onclick="setRTab(this)">🥑 Keto <span class="r-count" id="rc-keto">0</span></button>
+      <button class="r-tab" data-cat="semifreddi" onclick="setRTab(this)">🍨 Semifreddi <span class="r-count" id="rc-semifreddi">0</span></button>
       <button class="r-tab" data-cat="mie" onclick="setRTab(this)">⭐ Mie Ricette <span class="r-count" id="rc-mie">0</span></button>
       <button class="r-tab" data-cat="rimanenza" onclick="setRTab(this)">📦 Rimanenza <span class="r-count" id="rc-rimanenza">0</span></button>
       <button class="r-tab" data-cat="lab" onclick="setRTab(this)">🏭 Laboratorio <span class="r-count" id="rc-lab">0</span></button>
@@ -660,6 +662,7 @@ select.fl-sel:focus{border-color:var(--fl-accent)}
         <option value="acqua">💧 Base Acqua</option>
         <option value="gastro">🧀 Gastronomici</option>
         <option value="keto">🥑 Keto</option>
+        <option value="semifreddi">🍨 Semifreddi</option>
         <option value="mie">⭐ Mie Ricette</option>
         <option value="rimanenza">📦 Rimanenza</option>
       </select>
@@ -1061,9 +1064,10 @@ const PROFILI={
   castagna:{nome:'Castagna / frutta amidacea', icona:'🍂'},
   acqua_grassa:{nome:'Base acqua con grassi (vegano)', icona:'🌰'},
   latte:{nome:'Base latte', icona:'🥛'},
-  ricca:{nome:'Crema ricca', icona:'🍮'}
+  ricca:{nome:'Crema ricca', icona:'🍮'},
+  semifreddo:{nome:'Semifreddo', icona:'🍨'}
 };
-const PROFILO_ORDINE=['auto','sorbetto','castagna','acqua_grassa','latte','ricca'];
+const PROFILO_ORDINE=['auto','sorbetto','castagna','acqua_grassa','latte','ricca','semifreddo'];
 // Frutti amidacei: l'amido non congela e indurisce la massa, servono più zuccheri anticongelanti di un sorbetto
 const RE_AMIDACEA=/castagn|marron/i;
 const CAT_FRUTTA=new Set(['FRUTTA','VERDURA','FRUTTA AMIDACEA']);
@@ -1093,6 +1097,7 @@ function acquaCongelataPct(m, T){
 // Rilevamento automatico del profilo dalla composizione
 function rilevaProfilo(m){
   const g=m.gPct, l=m.lPct, fr=m.fruttaPct;
+  if((m.semiPct||0)>=10) return 'semifreddo';   // c'è una base montata (meringa / pâte à bombe)
   if(l<0.5){                                   // niente latte
     if((m.amidaceaPct||0)>=20 && g<4) return 'castagna';
     if(g<2 || (fr>=35 && g<4)) return 'sorbetto';
@@ -1104,7 +1109,7 @@ function rilevaProfilo(m){
 
 // Analisi completa di una lista di righe {nm,qty}
 function analizzaMiscela(righe, getIng){
-  let qty=0,Z=0,G=0,L=0,P=0,AS=0,PAC=0,POD=0,KC=0,COST=0,STAB=0,FR=0,LATT=0,AMID=0,SALE=0,SALE_AGG=0;
+  let qty=0,Z=0,G=0,L=0,P=0,AS=0,PAC=0,POD=0,KC=0,COST=0,STAB=0,FR=0,LATT=0,AMID=0,SALE=0,SALE_AGG=0,SEMI=0;
   righe.forEach(r=>{
     const d=getIng(r.nm!==undefined?r.nm:r.n); const q=parseFloat(r.qty!==undefined?r.qty:r.q)||0;
     if(!d||q===0) return;
@@ -1115,13 +1120,15 @@ function analizzaMiscela(righe, getIng){
     if(CAT_FRUTTA.has(d.c)) FR+=q;
     if(d.c==='FRUTTA AMIDACEA' || RE_AMIDACEA.test(d.n||'')) AMID+=q;
     if(d.l>0) LATT+=d.l*q/100;
+    if(/meringa|bomb|semifredd/i.test(String((r.nm!==undefined?r.nm:r.n)||'')+' '+(d.n||''))) SEMI+=q;
   });
   if(qty===0) return null;
   const ST=Z+G+L+P+AS;
   const ACQUA=Math.max(0,qty-ST);
   const m={qty,Z,G,L,P,AS,PAC,POD,KC,COST,STAB,ST,ACQUA,SALE,SALE_AGG};
   m.ZUCCHERI=Z+L;                               // zuccheri totali (lattosio compreso)
-  m.gPct=G/qty*100; m.lPct=L/qty*100; m.fruttaPct=FR/qty*100; m.amidaceaPct=AMID/qty*100;
+  m.gPct=G/qty*100; m.lPct=L/qty*100; m.fruttaPct=FR/qty*100; m.amidaceaPct=AMID/qty*100; m.semiPct=SEMI/qty*100;
+  m.zucPct=(Z+L)/qty*100; m.protPct=P/qty*100;
   m.RAF=PAC/qty*100;                            // PAC relativo (per 100 g di miscela)
   m.PACkg=PAC/qty*1000;                         // PAC riportato a 1 kg
   m.PODpct=POD/qty*100;
@@ -1393,7 +1400,11 @@ const RANGE={
   castagna:    {raf:[44,50],    pod:[25,31],   rst:[40,46], acq:[54,60], za:[44,52], ice:[38,44], gst:null,        slng:null,      grassi:null},
   acqua_grassa:{raf:[25,29.5],  pod:[17.5,22.5],rst:[34,43], acq:[57,66], za:[27,40], ice:[64,73], gst:[0.15,0.30], slng:null,      grassi:[60,130]},
   latte:       {raf:[22.5,27.5],pod:[14,18],   rst:[35,41], acq:[59,65], za:[27,35], ice:[66,73], gst:[0.22,0.30], slng:[8.5,10.5],grassi:[70,120]},
-  ricca:       {raf:[22.5,29.5],pod:[13,18.5], rst:[38,44], acq:[56,62], za:[26,37], ice:[61,72], gst:[0.28,0.38], slng:[8.5,10.5],grassi:[120,170]}
+  ricca:       {raf:[22.5,29.5],pod:[13,18.5], rst:[38,44], acq:[56,62], za:[26,37], ice:[61,72], gst:[0.28,0.38], slng:[8.5,10.5],grassi:[120,170]},
+  // Semifreddo (meringa italiana / pâte à bombe + panna montata): zuccheri 20–27%, grassi 15–24%, proteine 5–10%,
+  // servito tra -8 e -16 °C (fonte: Dissapore, "Semifreddo e parfait: le differenze"). La morbidezza viene dall'aria
+  // incorporata con meringa e panna, non dal mantecatore: RAF, ghiaccio e Z/acqua restano solo informativi.
+  semifreddo:  {raf:null,       pod:[20,27],   rst:[42,56], acq:[44,58], za:null,    ice:null,    gst:null,        slng:null,      grassi:[150,240], prot:[5,10], zuc:[20,27]}
 };
 function getTPozzetto(){const v=parseFloat(localStorage.getItem('gelato_tPozzetto'));return isNaN(v)?-10.7:v;}
 function cambiaTPozzetto(){
@@ -1420,7 +1431,7 @@ function recalc(){
   if(!m){clearUI();return;}
   const {qty,Z,G,L,P,AS,PAC,POD,KC,COST,STAB,ST,ACQUA}=m;
   const pr=profiloScelto(m); const tipo=pr.k; const R=RANGE[tipo];
-  const isSorb=(tipo==='sorbetto'||tipo==='castagna'); const isLatte=(tipo==='latte'||tipo==='ricca');
+  const isSorb=(tipo==='sorbetto'||tipo==='castagna'); const isLatte=(tipo==='latte'||tipo==='ricca'); const isSemi=(tipo==='semifreddo');
   const P_=PROFILI[tipo];
   document.getElementById('tipo-label').textContent='Profilo: '+P_.icona+' '+P_.nome+(pr.auto?' (auto)':' (manuale)');
   const hint=document.getElementById('profilo-auto-hint');
@@ -1457,7 +1468,8 @@ function recalc(){
   document.getElementById('tcong').textContent=m.puntoCong.toFixed(1).replace('.',',');
   const tb2=document.getElementById('tbadge');
   let iceLabel,iceClass;
-  if(ice>=R.ice[0]&&ice<=R.ice[1]){iceLabel='✓ Spatolabile ('+fr(R.ice)+'% per '+P_.nome.toLowerCase()+')';iceClass='badge-ok';}
+  if(!R.ice){iceLabel='ℹ Semifreddo: si serve tra -8 e -16 °C, la morbidezza viene dall\'aria di meringa e panna';iceClass='badge-ok';}
+  else if(ice>=R.ice[0]&&ice<=R.ice[1]){iceLabel='✓ Spatolabile ('+fr(R.ice)+'% per '+P_.nome.toLowerCase()+')';iceClass='badge-ok';}
   else if(ice>R.ice[1]+4){iceLabel='✗ Troppo duro: troppa acqua congelata';iceClass='badge-err';}
   else if(ice>R.ice[1]){iceLabel='⚠ Tende al duro';iceClass='badge-warn';}
   else if(ice<R.ice[0]-4){iceLabel='✗ Troppo molle: poca acqua congelata';iceClass='badge-err';}
@@ -1483,11 +1495,16 @@ function recalc(){
   document.getElementById('kc100').textContent=f0(KC/qty*100)+' kcal';
 
   // ---- semafori ----
-  sema('p-pac','s-pac',m.RAF,R.raf[0],R.raf[1],v=>v.toFixed(1));
+  if(R.raf) sema('p-pac','s-pac',m.RAF,R.raf[0],R.raf[1],v=>v.toFixed(1)); else semNeu('p-pac','s-pac',m.RAF.toFixed(1)+' (informativo)');
   document.getElementById('lbl-pac-sub').textContent='PAC relativo · PAC/kg '+m.PACkg.toFixed(0);
-  semP('p-pod','s-pod',m.PODpct,R.pod[0],R.pod[1]);
+  { const lp=document.getElementById('lbl-pod'), lps=document.getElementById('lbl-pod-sub');
+    if(lp) lp.textContent=isSemi?'Zuccheri %':'POD %'; if(lps) lps.textContent=isSemi?'Semifreddo: 20–27%':'Dolcezza'; }
+  if(isSemi) semP('p-pod','s-pod',m.zucPct,R.zuc[0],R.zuc[1]); else semP('p-pod','s-pod',m.PODpct,R.pod[0],R.pod[1]);
   const lblS=document.getElementById('lbl-slng'),lblSs=document.getElementById('lbl-slng-sub');
-  if(isLatte){
+  if(isSemi){
+    lblS.textContent='Proteine %';lblSs.textContent='Semifreddo: 5–10%';
+    semP('p-slng','s-slng',m.protPct,R.prot[0],R.prot[1]);
+  } else if(isLatte){
     lblS.textContent='SLNG %';lblSs.textContent='(Latt+Prot)/totale';
     semP('p-slng','s-slng',m.SLNG,R.slng[0],R.slng[1]);
   } else {
@@ -1499,7 +1516,7 @@ function recalc(){
   semSapidita(m);
   semP('p-rst','s-rst',m.RST,R.rst[0],R.rst[1]);
   semP('p-acq2','s-acq2',m.ACQUApct,R.acq[0],R.acq[1]);
-  semP('p-za','s-za',m.ZA,R.za[0],R.za[1]);
+  if(R.za) semP('p-za','s-za',m.ZA,R.za[0],R.za[1]); else semNeu('p-za','s-za',m.ZA.toFixed(1)+'%');
 
   // ---- diagnostici ----
   document.getElementById('d-aroma').textContent=isSorb?'🍓 Aroma diretto (nessun grasso a trattenerlo)':((aroma>0.4?'🍫 Intenso/Persistente':aroma<0.22?'🥛 Pulito/Immediato':'🍦 Equilibrato')+' (ratio '+aroma.toFixed(3)+')');
@@ -1507,7 +1524,8 @@ function recalc(){
     ?'💧 '+(visc<0.14?'Fluida':'Media')+' ('+visc.toFixed(3)+') — fisiologica nel sorbetto'
     :((visc>0.22?'🔴 Alta (occhio al mantecatore)':visc<0.14?'🔵 Bassa/Fluida':'🟢 Ottimale')+' ('+visc.toFixed(3)+')');
   let overrun,overrunPct;
-  if(tipo==='castagna'){overrun='🟢 20–28% (Castagna: massa densa)';overrunPct=24;}
+  if(isSemi){overrun='🟢 Aria da meringa e panna montata (non dal mantecatore)';overrunPct=100;}
+  else if(tipo==='castagna'){overrun='🟢 20–28% (Castagna: massa densa)';overrunPct=24;}
   else if(isSorb){overrun='🟢 25–35% (Sorbetto)';overrunPct=30;}
   else if(altaV){overrun='🟡 25–30% (Frenato da solidi)';overrunPct=27;}
   else if(tipo==='ricca'){overrun='🟢 40–45% (Crema ricca)';overrunPct=42;}
@@ -1516,8 +1534,9 @@ function recalc(){
   document.getElementById('d-over').textContent=overrun;
   document.getElementById('d-vetr').textContent=iceLabel.replace(/^[✓⚠✗] /,'')+' — ghiaccio '+ice.toFixed(0)+'% a '+tPoz.toFixed(1)+'°C';
   document.getElementById('d-crem').textContent=isSorb?'— (non applicabile al sorbetto)':((G+P*0.5)/qty*100>18?'⭐⭐⭐ Molto cremoso':(G+P*0.5)/qty*100>12?'⭐⭐ Cremoso':'⭐ Leggero/Magro');
-  const podOk=m.PODpct>=R.pod[0]&&m.PODpct<=R.pod[1];
-  document.getElementById('d-pod').textContent=(podOk?'🟢 Dolce OK':m.PODpct<R.pod[0]?'🔴 Poco dolce':'🔴 Troppo dolce')+' (POD '+m.PODkg.toFixed(0)+'/kg)';
+  const vDol=isSemi?m.zucPct:m.PODpct, rDol=isSemi?R.zuc:R.pod;
+  const podOk=vDol>=rDol[0]&&vDol<=rDol[1];
+  document.getElementById('d-pod').textContent=(podOk?'🟢 Dolce OK':vDol<rDol[0]?'🔴 Poco dolce':'🔴 Troppo dolce')+(isSemi?' (zuccheri '+m.zucPct.toFixed(1)+'%, POD '+m.PODkg.toFixed(0)+'/kg)':' (POD '+m.PODkg.toFixed(0)+'/kg)');
   if(R.grassi){
     document.getElementById('d-grassi').textContent=(m.Gkg>R.grassi[1]?'🔴 Grasso/Pesante':m.Gkg<R.grassi[0]?'🟡 Magro':'🟢 OK')+' ('+m.Gkg.toFixed(0)+' g/kg)';
   } else document.getElementById('d-grassi').textContent='— ('+m.Gkg.toFixed(0)+' g/kg, sorbetto)';
@@ -1526,10 +1545,10 @@ function recalc(){
   document.getElementById('d-acq').textContent=m.ACQUApct.toFixed(1)+'% ('+f0(ACQUA)+'g) · congela a '+m.puntoCong.toFixed(1)+'°C';
 
   // ---- punteggio ----
-  const terzo=isLatte?{lbl:'SLNG',v:scoreSem(m.SLNG,R.slng[0],R.slng[1],15)}:{lbl:'Ghiaccio',v:scoreSem(ice,R.ice[0],R.ice[1],15)};
+  const terzo=isSemi?{lbl:'Proteine',v:scoreSem(m.protPct,R.prot[0],R.prot[1],15)}:isLatte?{lbl:'SLNG',v:scoreSem(m.SLNG,R.slng[0],R.slng[1],15)}:{lbl:'Ghiaccio',v:scoreSem(ice,R.ice[0],R.ice[1],15)};
   const scores={
-    RAF:scoreSem(m.RAF,R.raf[0],R.raf[1],30),
-    POD:scoreSem(m.PODpct,R.pod[0],R.pod[1],20),
+    RAF:R.raf?scoreSem(m.RAF,R.raf[0],R.raf[1],30):scoreSem(m.gPct,R.grassi[0]/10,R.grassi[1]/10,30),
+    POD:isSemi?scoreSem(m.zucPct,R.zuc[0],R.zuc[1],20):scoreSem(m.PODpct,R.pod[0],R.pod[1],20),
     T3:terzo.v,
     RST:scoreSem(m.RST,R.rst[0],R.rst[1],10),
     STAB:STAB>0?scoreSem(STAB,stabLo,stabHi,10):5,
@@ -1545,8 +1564,8 @@ function recalc(){
   document.getElementById('score-val').style.color=scoreColor;
   document.getElementById('score-label').textContent=scoreLabel;
   const barData=[
-    {lbl:'RAF',v:scores.RAF,max:30,c:'var(--teal)'},
-    {lbl:'POD',v:scores.POD,max:20,c:'var(--gold)'},
+    {lbl:R.raf?'RAF':'Grassi',v:scores.RAF,max:30,c:'var(--teal)'},
+    {lbl:isSemi?'Zuccheri':'POD',v:scores.POD,max:20,c:'var(--gold)'},
     {lbl:terzo.lbl,v:scores.T3,max:15,c:'#E06020'},
     {lbl:'RST',v:scores.RST,max:10,c:'var(--brown-light)'},
     {lbl:'Stab.',v:scores.STAB,max:10,c:'#5B8A5A'},
@@ -1565,10 +1584,10 @@ function recalc(){
   const has=n=>rows.some(r=>r.nm===n&&parseFloat(r.qty)>0);
   const baseLiq=isLatte?'Latte Intero':'Acqua';
   const gr=x=>Math.max(1,Math.round(x));
-  if(m.RAF<R.raf[0]){
+  if(R.raf&&m.RAF<R.raf[0]){
     const g=gr((R.raf[0]-m.RAF)*qty/100/0.9);
     sugg.push({i:'🧊',t:'RAF basso ('+m.RAF.toFixed(1)+' < '+R.raf[0]+') — duro a '+tPoz.toFixed(1)+'°C',a:'Sostituisci ~'+g+'g di Zucchero di canna con Destrosio (stesso peso): RAF +'+(g*0.9/qty*100).toFixed(1)+', POD −'+(g*0.25/qty*100).toFixed(1)+'%'});
-  } else if(m.RAF>R.raf[1]){
+  } else if(R.raf&&m.RAF>R.raf[1]){
     const g=gr((m.RAF-R.raf[1])*qty/100/0.9);
     sugg.push({i:'🌡️',t:'RAF alto ('+m.RAF.toFixed(1)+' > '+R.raf[1]+') — molle a '+tPoz.toFixed(1)+'°C',
       a:has('Destrosio')?'Sostituisci ~'+g+'g di Destrosio con Zucchero di canna (stesso peso)':'Riduci alcol / zuccheri invertiti / miele e sostituiscili a pari peso con Zucchero di canna'});
@@ -1598,11 +1617,19 @@ function recalc(){
   } else if(m.RST>R.rst[1]){
     sugg.push({i:'🧱',t:'RST alto ('+m.RST.toFixed(1)+'%) — struttura pesante',a:'Sostituisci ~'+gr((m.RST-R.rst[1])*qty/100)+'g di polveri/solidi con '+baseLiq});
   }
-  const rafOk=m.RAF>=R.raf[0]&&m.RAF<=R.raf[1];
-  if(rafOk&&(ice<R.ice[0]||ice>R.ice[1])){
+  const rafOk=R.raf?(m.RAF>=R.raf[0]&&m.RAF<=R.raf[1]):true;
+  if(R.ice&&rafOk&&(ice<R.ice[0]||ice>R.ice[1])){
     sugg.push({i:'🔬',t:'RAF in range ma ghiaccio '+ice.toFixed(0)+'% fuori target ('+fr(R.ice)+'%)',a:'La causa è l\'acqua libera ('+m.ACQUApct.toFixed(1)+'%): agisci sul RST, non sugli zuccheri'});
   }
-  if(!isSorb&&visc>0.22){sugg.push({i:'⚙️',t:'Viscosità alta ('+visc.toFixed(3)+') — attenzione al mantecatore',a:'Sostituisci parte dei solidi grassi con '+baseLiq});}
+  if(isSemi){
+    if(m.zucPct<R.zuc[0]) sugg.push({i:'🍬',t:'Zuccheri bassi ('+m.zucPct.toFixed(1)+'% < '+R.zuc[0]+'%)',a:'Aumenta la meringa italiana o lo zucchero della pâte à bombe'});
+    else if(m.zucPct>R.zuc[1]) sugg.push({i:'🍬',t:'Zuccheri alti ('+m.zucPct.toFixed(1)+'% > '+R.zuc[1]+'%)',a:'Riduci la meringa o aumenta la panna'});
+    if(m.gPct<R.grassi[0]/10) sugg.push({i:'🧈',t:'Grassi bassi ('+m.gPct.toFixed(1)+'% < '+R.grassi[0]/10+'%) — rischio di cristalli e struttura secca',a:'Aumenta la panna montata o la pâte à bombe'});
+    else if(m.gPct>R.grassi[1]/10) sugg.push({i:'🧈',t:'Grassi alti ('+m.gPct.toFixed(1)+'% > '+R.grassi[1]/10+'%) — pesante',a:'Riduci la panna e aumenta la meringa'});
+    if(m.protPct<R.prot[0]) sugg.push({i:'🥚',t:'Proteine basse ('+m.protPct.toFixed(1)+'%) — l\'aria tiene poco',a:'Aumenta la meringa (albumi) o la pâte à bombe (tuorli)'});
+    else if(m.protPct>R.prot[1]) sugg.push({i:'🥚',t:'Proteine alte ('+m.protPct.toFixed(1)+'%) — consistenza gommosa',a:'Riduci la meringa e aumenta la panna'});
+  }
+  if(!isSorb&&!isSemi&&visc>0.22){sugg.push({i:'⚙️',t:'Viscosità alta ('+visc.toFixed(3)+') — attenzione al mantecatore',a:'Sostituisci parte dei solidi grassi con '+baseLiq});}
   if(isLatte&&R.grassi&&m.Gkg>R.grassi[1]){sugg.push({i:'🧈',t:'Grassi eccessivi ('+m.Gkg.toFixed(0)+'g/kg)',a:'Sostituisci parte della panna con latte intero'});}
   const suggEl=document.getElementById('sugg-list');
   if(sugg.length===0){suggEl.innerHTML='<div style="color:var(--green);font-weight:600;font-size:13px">✅ Ricetta bilanciata — nessuna correzione necessaria!</div>';}
@@ -1882,10 +1909,13 @@ async function pubblicaRicettaLab(rec, nuova){
     return {nome:nomeLab,d:parseFloat(r.q)||0,ins:ins[nomeLab]||''};
   });
   const ts=Date.now();
+  const eSemi=getCat(rec)==='semifreddi' || rec.prof==='semifreddo';
   const dati={nome:labNome,ingredienti,eliminata:false,_ts:ts,_da:'bilanciatore'};
+  if(eSemi) dati.tipo='semifreddo';
   if(nuova) Object.assign(dati,{pv:28,allergeni:'',inst_finale:'',lista_ing:''});
   try{
     await db.collection('ricette_lab').doc(idDocRicettaLab(labNome)).set(dati,{merge:true});
+    if(eSemi && !rec.cartella) rec.cartella='semifreddi';
     rec.lab=true; rec.cat='lab'; rec.labNome=labNome; rec.labTs=ts;
     rec.labMappa=Object.fromEntries(ingredienti.map((x,i)=>[rec.rows.filter(r=>r.n&&parseFloat(r.q)>0)[i].n,x.nome]));
     rec.labIns=Object.fromEntries(ingredienti.map(x=>[x.nome,x.ins]));
@@ -2092,6 +2122,8 @@ function recipeMatchesSearch(recipe, q){
 function getCat(recipe){
   // Cartella scelta a mano (anche per le ricette del laboratorio, che restano anche in "Laboratorio")
   if(recipe.cartella) return recipe.cartella;
+  if(recipe.prof==='semifreddo' && (!recipe.cat||recipe.cat==='mie')) return 'semifreddi';
+  if((!recipe.cat||recipe.cat==='mie') && Array.isArray(recipe.rows) && recipe.rows.some(r=>/meringa|bomb|semifredd/i.test(r.n||''))) return 'semifreddi';
   // For saved user recipes, auto-detect category
   if(recipe.cat) return recipe.cat;
   if(!recipe.rows || !Array.isArray(recipe.rows)) return 'crema';
@@ -2111,6 +2143,7 @@ const CAT_META={
   acqua:{label:'💧 Base Acqua',color:'#2A6090'},
   gastro:{label:'🧀 Gastronomici',color:'#6B3B8B'},
   keto:{label:'🥑 Keto',color:'#2A7B3A'},
+  semifreddi:{label:'🍨 Semifreddi',color:'#9B4D6E'},
   mie:{label:'⭐ Mie Ricette',color:'#1E7C46'},
   rimanenza:{label:'📦 Rimanenza',color:'#8B5A2B'},
   lab:{label:'🏭 Laboratorio (ricette di produzione)',color:'#16241C'},
@@ -2129,12 +2162,13 @@ function renderRecipes(){
   const all=[...preAll.filter(r=>!savedNames.has(r.name)),...savedAll];
 
   // Count per category
-  const counts={tutti:0,latte:0,crema:0,acqua:0,gastro:0,keto:0,mie:0,rimanenza:0,lab:0};
+  const counts={tutti:0,latte:0,crema:0,acqua:0,gastro:0,keto:0,semifreddi:0,mie:0,rimanenza:0,lab:0};
   all.forEach(r=>{
     if(recipeMatchesSearch(r,q)){
       counts.tutti++;
       const c=getCat(r);
       if(r.lab){ counts.lab++; if(r.cartella&&counts[c]!==undefined) counts[c]++; }
+      else if(c==='semifreddi'){ counts.semifreddi++; }
       else if(!r.pb && (c==='mie'||!r.cat)){ counts.mie++; } // Mie Ricette = salvate e non spostate in una cartella
       else { if(counts[c]!==undefined) counts[c]++; }
     }
@@ -2149,7 +2183,7 @@ function renderRecipes(){
     if(!recipeMatchesSearch(r,q)) return false;
     if(rActiveCat==='tutti') return true;
     if(rActiveCat==='lab') return !!r.lab;
-    if(rActiveCat==='mie') return !r.pb && !r.lab && (getCat(r)==='mie'||!r.cat); // ricette salvate dall'utente non spostate
+    if(rActiveCat==='mie') return !r.pb && !r.lab && getCat(r)!=='semifreddi' && (getCat(r)==='mie'||!r.cat); // ricette salvate dall'utente non spostate
     return getCat(r)===rActiveCat;
   });
 
@@ -2159,12 +2193,12 @@ function renderRecipes(){
   // Group by category when showing "tutti"
   let html='';
   if(rActiveCat==='tutti'){
-    const catOrder=['lab','latte','crema','acqua','gastro','keto','mie','rimanenza'];
+    const catOrder=['lab','latte','crema','acqua','gastro','keto','semifreddi','mie','rimanenza'];
     catOrder.forEach(cat=>{
       const group=filtered.filter(r=>getCat(r)===cat||(cat==='mie'&&!r.pb));
       // avoid double-counting
       const groupFinal=cat==='lab'?filtered.filter(r=>r.lab)
-        :cat==='mie'?filtered.filter(r=>!r.pb&&!r.lab&&(getCat(r)==='mie'||!r.cat))
+        :cat==='mie'?filtered.filter(r=>!r.pb&&!r.lab&&getCat(r)!=='semifreddi'&&(getCat(r)==='mie'||!r.cat))
         :filtered.filter(r=>getCat(r)===cat&&(r.pb?!savedNames.has(r.name):(r.lab?!!r.cartella:true)));
       if(!groupFinal.length) return;
       const meta=CAT_META[cat];
@@ -2709,6 +2743,7 @@ function openMoveModal(recipe, e){
     {k:'acqua',l:'💧 Base Acqua'},
     {k:'gastro',l:'🧀 Gastronomici'},
     {k:'keto',l:'🥑 Keto'},
+    {k:'semifreddi',l:'🍨 Semifreddi'},
   ];
   document.getElementById('move-modal-cats').innerHTML=cats.map(c=>`
     <button class="modal-cat-btn${c.k===currentCat?' current':''}" onclick="doMove('${c.k}')">${c.l}${c.k===currentCat?' ← attuale':''}</button>
