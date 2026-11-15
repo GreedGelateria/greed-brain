@@ -34,6 +34,29 @@ h2{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:28px;color:v
 #login .m{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:54px;letter-spacing:.3em;padding-left:.3em;color:var(--oro)}
 #login button{margin-top:28px;background:var(--oro);color:var(--verde);border:0;border-radius:10px;padding:14px 30px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer}
 @media(max-width:800px){#menu{position:fixed;z-index:5;box-shadow:4px 0 20px rgba(0,0,0,.3)}}
+/* ── ASSISTENTE (solo Dario) ── */
+#ai-btn{position:fixed;right:18px;bottom:18px;z-index:8;width:58px;height:58px;border-radius:50%;border:0;background:var(--verde2);color:#fff;font-size:26px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25);display:none}
+#ai-btn:hover{transform:scale(1.05)}
+#ai{position:fixed;right:18px;bottom:88px;z-index:9;width:420px;max-width:calc(100vw - 24px);height:min(640px,calc(100vh - 110px));background:#fff;border:1px solid #e3d8c2;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.25);display:none;flex-direction:column;overflow:hidden}
+#ai.aperto{display:flex}
+#ai header{background:var(--verde);color:#f6f1e6;padding:12px 14px;display:flex;align-items:center;gap:8px}
+#ai header b{font-family:'Cormorant Garamond',serif;font-size:20px;letter-spacing:.06em;flex:1}
+#ai header button{background:transparent;border:1px solid rgba(255,255,255,.3);color:#f6f1e6;border-radius:8px;padding:4px 9px;font-family:inherit;font-size:13px;cursor:pointer}
+#ai-msg{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--crema)}
+.ai-m{max-width:88%;padding:9px 12px;border-radius:12px;font-size:14.5px;line-height:1.5;white-space:normal;word-wrap:break-word}
+.ai-m.d{align-self:flex-end;background:var(--verde2);color:#fff;border-bottom-right-radius:4px}
+.ai-m.a{align-self:flex-start;background:#fff;border:1px solid #e3d8c2;border-bottom-left-radius:4px}
+.ai-m.a .fonti{font-size:11px;color:#8a7a5a;margin-top:6px}
+.ai-m.err{background:#fbe4e0;color:#a33;border:0}
+.ai-sugg{display:flex;flex-direction:column;gap:6px}
+.ai-sugg button{text-align:left;background:#fff;border:1px solid #e3d8c2;border-radius:10px;padding:8px 11px;font-family:inherit;font-size:13.5px;color:var(--verde);cursor:pointer}
+#ai-form{display:flex;gap:6px;padding:10px;border-top:1px solid #e3d8c2;background:#fff}
+#ai-txt{flex:1;resize:none;border:1px solid #d8ccb4;border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14.5px;max-height:110px}
+#ai-form button{border:0;border-radius:10px;padding:0 13px;font-size:18px;cursor:pointer;background:#eef2ea;color:var(--verde2)}
+#ai-form button.invia{background:var(--verde2);color:#fff}
+#ai-mic.rec{background:#c0392b;color:#fff;animation:pulsa 1s infinite}
+@keyframes pulsa{50%{opacity:.6}}
+@media(max-width:600px){#ai{right:0;bottom:0;width:100vw;max-width:100vw;height:100%;border-radius:0}#ai-btn{bottom:14px;right:14px}}
 </style></head><body>
 <div id="login"><div class="m">GREED</div><div style="letter-spacing:.2em;font-size:13px;margin-top:6px">PIATTAFORMA · GELATO NATURALE</div>
   <button onclick="accedi()">Accedi con Google</button><div id="loginErr" style="margin-top:14px;font-size:13px;color:#f3b0a0"></div></div>
@@ -44,6 +67,13 @@ h2{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:28px;color:v
     <button onclick="apri('home')" title="Inizio">🏠</button><span id="titolo">Inizio</span><a id="esterno" href="#" target="_blank" rel="noopener" style="display:none">Apri in una scheda a parte ↗</a></div>
   <div id="benvenuto"></div>
   <iframe id="vista" style="display:none" allow="usb; serial; camera; microphone; clipboard-read; clipboard-write; fullscreen; bluetooth"></iframe>
+</div>
+<button id="ai-btn" onclick="aiApri()" title="Chiedi all'assistente">🤖</button>
+<div id="ai" role="dialog" aria-label="Assistente GREED">
+  <header><b>🤖 Assistente</b><button id="ai-voce" onclick="aiVoce()" title="Leggi le risposte a voce">🔇</button><button onclick="aiNuova()" title="Nuova conversazione">Nuova</button><button onclick="aiApri(false)" title="Chiudi">✕</button></header>
+  <div id="ai-msg"></div>
+  <form id="ai-form" onsubmit="aiInvia();return false"><textarea id="ai-txt" rows="1" placeholder="Scrivi una domanda…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiInvia()}"></textarea>
+    <button type="button" id="ai-mic" onclick="aiMic()" title="Parla">🎤</button><button class="invia" title="Invia">➤</button></form>
 </div>
 <script>
 // ── TUTTI I PROGRAMMI GREED, in un posto solo ───────────────────────────────
@@ -128,9 +158,75 @@ function apriSulPc(p) {
       Non succede niente? Su questo PC va fatto <b>una volta sola</b> il doppio clic su <b>INSTALLA_COLLEGAMENTI</b>, nella cartella ${esc(cartella)}.<br>
       Se il programma è già acceso: <a href="${p.u}" target="_blank" style="color:#2d6a4f;font-weight:600">apri direttamente ↗</a></div></div>`;
 }
+
+// ── ASSISTENTE: domande a voce o scritte sui dati GREED (solo account di Dario, solo lettura) ──
+const AI_URL = 'https://assistente-u3jmxuuypq-ey.a.run.app';
+const AI_SUGG = ['Quanto abbiamo incassato a ottobre rispetto all\'anno scorso?', 'Quanto abbiamo fatturato con il B2B quest\'anno rispetto al 2025?',
+  'Quali spese sono aumentate di più rispetto all\'anno scorso?', 'Ci sono lotti in scadenza nei prossimi 15 giorni?', 'Le temperature dei frigoriferi sono state regolari questa settimana?'];
+let AI_STORIA = [], AI_PARLA = false, AI_DAVOCE = false, AI_REC = null, AI_OCCUPATO = false;
+try { AI_PARLA = localStorage.getItem('greed_ai_voce') === '1'; } catch (e) {}
+function aiApri(on) {
+  const p = document.getElementById('ai'), apri = on === undefined ? !p.classList.contains('aperto') : on;
+  p.classList.toggle('aperto', apri);
+  if (apri) { if (!AI_STORIA.length) aiDisegna(); setTimeout(() => document.getElementById('ai-txt').focus(), 50); }
+  else try { speechSynthesis.cancel(); } catch (e) {}
+}
+function aiFormatta(t) {
+  return esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^#{1,4} (.+)$/gm, '<b>$1</b>').replace(/^[-•] /gm, '• ').replace(/\n/g, '<br>');
+}
+function aiDisegna() {
+  const box = document.getElementById('ai-msg');
+  box.innerHTML = AI_STORIA.length ? AI_STORIA.map(m => `<div class="ai-m ${m.ruolo === 'dario' ? 'd' : m.err ? 'a err' : 'a'}">${m.ruolo === 'dario' ? esc(m.testo) : aiFormatta(m.testo)}${m.fonti ? `<div class="fonti">📚 ${esc(m.fonti)}</div>` : ''}</div>`).join('')
+    : `<div class="ai-m a">Ciao Dario, chiedimi quello che vuoi sui dati di GREED. Puoi scrivere o premere 🎤 e parlare.</div><div class="ai-sugg">${AI_SUGG.map(q => `<button type="button" onclick="aiInvia(this.textContent)">${esc(q)}</button>`).join('')}</div>`;
+  if (AI_OCCUPATO) box.insertAdjacentHTML('beforeend', '<div class="ai-m a" id="ai-attesa">⏳ Sto guardando i dati…</div>');
+  box.scrollTop = box.scrollHeight;
+}
+function aiNuova() { AI_STORIA = []; try { speechSynthesis.cancel(); } catch (e) {} aiDisegna(); }
+function aiVoce() { AI_PARLA = !AI_PARLA; document.getElementById('ai-voce').textContent = AI_PARLA ? '🔊' : '🔇'; try { localStorage.setItem('greed_ai_voce', AI_PARLA ? '1' : '0'); } catch (e) {} if (!AI_PARLA) try { speechSynthesis.cancel(); } catch (e) {} }
+function aiLeggi(t) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(t.replace(/\*\*/g, '').replace(/[#•]/g, '').replace(/€/g, ' euro'));
+    u.lang = 'it-IT'; const v = speechSynthesis.getVoices().find(x => /^it/i.test(x.lang)); if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function aiMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition, btn = document.getElementById('ai-mic'), txt = document.getElementById('ai-txt');
+  if (!SR) { alert('Il riconoscimento vocale funziona con Chrome: apri la piattaforma in Chrome.'); return; }
+  if (AI_REC) { AI_REC.stop(); return; }
+  try { speechSynthesis.cancel(); } catch (e) {}
+  const r = new SR(); r.lang = 'it-IT'; r.interimResults = true; r.continuous = false; AI_REC = r;
+  let finale = '';
+  r.onresult = e => { let t = ''; for (const x of e.results) { t += x[0].transcript; if (x.isFinal) finale = t; } txt.value = t; };
+  r.onerror = e => { if (e.error === 'not-allowed') alert('Consenti l\'uso del microfono a questa pagina (icona a sinistra dell\'indirizzo).'); };
+  r.onend = () => { AI_REC = null; btn.classList.remove('rec'); const q = (finale || txt.value).trim(); if (q) { AI_DAVOCE = true; aiInvia(q); } };
+  btn.classList.add('rec'); r.start();
+}
+async function aiInvia(testo) {
+  const txt = document.getElementById('ai-txt'), q = String(testo || txt.value).trim();
+  if (!q || AI_OCCUPATO) return;
+  const daVoce = AI_DAVOCE; AI_DAVOCE = false;
+  txt.value = ''; AI_STORIA.push({ ruolo: 'dario', testo: q }); AI_OCCUPATO = true; aiDisegna();
+  try {
+    const u = firebase.app('piattaforma').auth().currentUser; if (!u) throw new Error('Accedi di nuovo con Google.');
+    const r = await fetch(AI_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + await u.getIdToken() },
+      body: JSON.stringify({ domanda: q, storia: AI_STORIA.slice(0, -1).filter(m => !m.err).slice(-8).map(m => ({ ruolo: m.ruolo, testo: m.testo })) }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.errore || ('Errore ' + r.status));
+    AI_STORIA.push({ ruolo: 'assistente', testo: j.risposta, fonti: (j.consultati || []).length ? 'dati letti: ' + j.consultati.join(' · ') : '' });
+    if (AI_PARLA || daVoce) aiLeggi(j.risposta);
+  } catch (e) {
+    const msg = /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? 'L\'assistente non risponde: se è la prima volta, va ancora installato sul server (comandi di installazione). Altrimenti controlla la connessione.' : e.message;
+    AI_STORIA.push({ ruolo: 'assistente', testo: '⚠️ ' + msg, err: true });
+  }
+  AI_OCCUPATO = false; aiDisegna();
+}
 function entra(email) {
   if (email) RUOLO = EMAIL[email];
   document.getElementById('login').style.display = 'none';
+  document.getElementById('ai-btn').style.display = RUOLO === 'admin' ? 'block' : 'none';
+  document.getElementById('ai-voce').textContent = AI_PARLA ? '🔊' : '🔇';
   if (!scegliPostazione(false)) { document.getElementById('chi').textContent = RUOLO === 'admin' ? 'Dario' : 'Staff'; return; }
   document.getElementById('chi').innerHTML = (RUOLO === 'admin' ? 'Dario' : 'Staff') + ` · <a href="#" onclick="scegliPostazione(true);return false" style="color:#e8c766">${NOMI_POST[POST]}</a>`;
   disegna();
