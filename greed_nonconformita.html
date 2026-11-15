@@ -282,11 +282,12 @@ const db  = getFirestore(app);
 await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
 
 const OPERATORI = [
-  { nome: 'DARIO', pin: '1234' },
-  { nome: 'FABIO', pin: '1234' },
+  { nome: 'DARIO', pin: '112233' },
+  { nome: 'STAFF', pin: '1234' },
 ];
 
 let currentUser = null, currentPin = '', tipoSel = null, sevSel = null;
+const pinLen = () => (OPERATORI.find(o => o.nome === currentUser)?.pin.length) || 4;
 
 // ── LOGIN ─────────────────────────────────────────────────
 const chips = document.getElementById('user-chips');
@@ -305,16 +306,16 @@ window.selUser = n => {
 
 function renderDots() {
   document.getElementById('pin-display').innerHTML =
-    Array(4).fill(0).map((_,i) =>
+    Array(pinLen()).fill(0).map((_,i) =>
       `<div class="pin-dot ${i < currentPin.length ? 'filled' : ''}"></div>`
     ).join('');
 }
 
 window.pinPress = d => {
   if (!currentUser) { document.getElementById('pin-error').textContent = 'Seleziona il tuo nome'; return; }
-  if (currentPin.length >= 4) return;
+  if (currentPin.length >= pinLen()) return;
   currentPin += d; renderDots();
-  if (currentPin.length === 4) checkPin();
+  if (currentPin.length === pinLen()) checkPin();
 };
 window.pinDel = () => { currentPin = currentPin.slice(0,-1); renderDots(); };
 

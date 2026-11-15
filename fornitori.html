@@ -49,10 +49,61 @@ const giorno = t => { const d = t && t.toDate ? t.toDate() : (t ? new Date(t) : 
 const ms = t => t && t.toDate ? t.toDate().getTime() : (t ? new Date(t).getTime() : 0);
 const GG = 86400000;
 let db, DARIO = false, VISTA = 'forn';
-let ACQ = [], FORN = {}, SCHEDE = [], RICH = [], SCAD = {};
+// Contatti trovati da Claude nella posta di gelateriagreed@gmail.com (da approvare con un tocco)
+const SUGGERITI = [
+  { k: /padovana/i, nome: 'Padovana Macinazione', email: 'fabio.moreschi@padovanamacinazione.com', referente: 'Fabio Moreschi' },
+  { k: /moralco/i, nome: 'Moralco', email: 'milena@moralco.it', referente: 'Milena Polato' },
+  { k: /\bdea\b|deanocciola/i, nome: 'Dea Nocciola', email: 'federico@deanocciola.com', referente: 'Federico Guitarrini' },
+  { k: /suicra/i, nome: 'Suicra', email: 'g.morra@suicra.it', referente: 'G. Morra' },
+  { k: /gioia/i, nome: 'Gioia Group', email: 'davidefrainetti@gioia-group.it', referente: 'Davide Frainetti' },
+  { k: /corilanga/i, nome: 'Corilanga', email: 'commerciale@corilanga.it', referente: 'Elisa Diotti' },
+  { k: /nocciolcono/i, nome: 'Nocciolcono', email: 'nocciolcono@nocciolcono.it', referente: 'Giulia' },
+  { k: /cicero/i, nome: 'Apicoltura Cicero', email: 'apicolturacicero@hotmail.it', referente: 'Marco Tullio Cicero' },
+  { k: /gusto ?etna|sapori dell.?etna/i, nome: 'Gusto Etna', email: 'antonio.intraguglielmo@gustoetna.info', referente: 'Antonio Intraguglielmo' },
+  { k: /nocciola ?market/i, nome: 'Nocciola Market', email: 'info@nocciola-market.com', referente: '' },
+  { k: /munaf/i, nome: 'Munafò', email: 'info@munafosrl.it', referente: '' },
+  { k: /latte ?sano|ariete/i, nome: 'Latte Sano', email: 'dati@lattesano.it', referente: 'Giovanna (ufficio dati)' }
+];
+function suggerimentiDaApplicare() {
+  const forn = fornitoriDaAcquisti();
+  return SUGGERITI.map((x, i) => { const f = forn.find(f => x.k.test(f.nome)); return { ...x, i, f }; })
+    .filter(x => !x.f || !String((FORN[x.f.id] || {}).email || '').includes('@'));
+}
+function renderSuggeriti() {
+  if (!DARIO) return '';
+  const L = suggerimentiDaApplicare(); if (!L.length) return '';
+  return `<div class="box" style="border-color:#c8a34a;background:#fffaf0"><div class="nome">📥 Contatti trovati nella posta (${L.length})</div>
+    <div class="nota">Li ho presi dalle mail che ti sei scambiato con i fornitori. Togli la spunta a quelli sbagliati e premi Applica.</div>
+    ${L.map(x => `<label class="prod" style="display:block"><input type="checkbox" class="sugg" value="${x.i}" checked> <b>${esc(x.f ? x.f.nome : x.nome)}</b> → ${esc(x.email)}${x.referente ? ' · ' + esc(x.referente) : ''}${x.f ? '' : ' <span class="muted">(fornitore non ancora nelle fatture: lo creo)</span>'}</label>`).join('')}
+    <button class="b" style="margin-top:8px" onclick="applicaSuggeriti()">✅ Applica selezionati</button></div>`;
+}
+async function applicaSuggeriti() {
+  const scelti = [...document.querySelectorAll('.sugg:checked')].map(c => +c.value), L = suggerimentiDaApplicare();
+  for (const i of scelti) {
+    const x = L.find(y => y.i === i); if (!x) continue;
+    const id = x.f ? x.f.id : slug(x.nome), nome = x.f ? x.f.nome : x.nome;
+    FORN[id] = { ...(FORN[id] || { id }), nome, email: x.email, referente: (FORN[id] || {}).referente || x.referente };
+    await db.collection('fornitori').doc(id).set({ nome, email: x.email, referente: FORN[id].referente, _ts: Date.now() }, { merge: true });
+  }
+  render();
+}
+let ACQ = [], FORN = {}, SCHEDE = [], RICH = [], SCAD = {}, CANON = {};
+
+// ── Doppioni: stesso fornitore scritto in modi diversi nelle fatture (SRL, S.P.A., "di Ferraro R&C"…) ──
+const STOP = new Set('SRL SRLS SPA SNC SAS SS SAPA SOC SOCIETA AGRICOLA AGR AZIENDA COOPERATIVA SEMPLICE GROUP GRUPPO ITALIA ITALIANA IL LA LE LO GLI DEI DELLA DELL DEL FLLI LLI EREDI DE DA DI'.split(' '));
+function chiave(nome) {
+  for (const x of SUGGERITI) if (x.k.test(nome)) return 'k-' + slug(x.nome);
+  let n = ' ' + norm(nome).replace(/\bS R L S?\b|\bS P A\b|\bS N C\b|\bS A S\b/g, ' ') + ' ';
+  n = n.replace(/ DI .*$/, ' ');
+  const t = n.trim().split(' ').filter(w => w.length > 1 && !STOP.has(w));
+  return 'k-' + (t[0] || slug(nome)).toLowerCase();
+}
+const canon = id => CANON[id] || id;
+// ── Fornitori che non vendono alimenti né materiali a contatto con il gelato: non servono schede tecniche ──
+const NON_ALIM = /energia|\benel\b|edison|\ba2a\b|\biren\b|\bhera\b|agsm|\byada\b|\bacea\b|fastweb|\btim\b|telecom|wind ?tre|vodafone|iliad|aruba|amazon|carburant|unipol|parking|belli & co|s\.?i\.?a\.?e\b|edenred|comune di|\bneos\b|\bitalo\b|viaggiatori|ristorante|bottega romana|\bmomo\b|la conca|brico|md italia|leroy|ikea|gelo ?team|impianti|\bcrb\b|coopfidi|solidea|chemi?c?hal|chemical|mazzocchetti|graphicscalve|\bdml\b|novagest|twin rent|siqur|imprendo|vetroplastica|shenzhen|dongguan|ugreen|memoruking|uzdaroki|jixian|price srl|ged group|poste italiane/i;
 
 // ── Fornitori e prodotti ricavati dalle entrate in magazzino (DDT e fatture) ──
-function fornitoriDaAcquisti() {
+function fornitoriDaAcquisti(conNascosti) {
   const m = {};
   ACQ.forEach(a => {
     if (!a.fornitore) return;
@@ -62,12 +113,25 @@ function fornitoriDaAcquisti() {
     f.prodotti[norm(p)] = f.prodotti[norm(p)] || p;
     f.ultimo = Math.max(f.ultimo, ms(a.data));
   });
-  Object.values(FORN).forEach(x => { if (!m[x.id]) m[x.id] = { id: x.id, nome: x.nome, prodotti: {}, ultimo: 0 }; });
-  return Object.values(m).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  Object.values(FORN).forEach(x => { if (!m[x.id]) m[x.id] = { id: x.id, nome: x.nome || x.id, prodotti: {}, ultimo: 0 }; });
+  // unisce i doppioni: resta la scheda che ha già l'email (altrimenti quella con più prodotti)
+  const gr = {}; CANON = {};
+  Object.values(m).forEach(f => (gr[chiave(f.nome)] = gr[chiave(f.nome)] || []).push(f));
+  const out = Object.values(gr).map(L => {
+    const conMail = L.filter(x => String((FORN[x.id] || {}).email || '').includes('@'));
+    const pick = (conMail.length ? conMail : L).slice().sort((a, b) => Object.keys(b.prodotti).length - Object.keys(a.prodotti).length || b.ultimo - a.ultimo)[0];
+    const f = { ...pick, prodotti: {}, ultimo: 0, ids: L.map(x => x.id), nomi: L.map(x => x.nome) };
+    L.forEach(x => { Object.assign(f.prodotti, x.prodotti); f.ultimo = Math.max(f.ultimo, x.ultimo); CANON[x.id] = f.id; });
+    const scelta = [pick, ...L].map(x => (FORN[x.id] || {}).escluso).find(v => typeof v === 'boolean');
+    f.auto = L.some(x => NON_ALIM.test(x.nome));
+    f.nascosto = typeof scelta === 'boolean' ? scelta : f.auto;
+    return f;
+  });
+  return out.filter(f => conNascosti || !f.nascosto).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
 }
 // stato della scheda tecnica di un prodotto: ok / in scadenza (30 gg) / mancante o scaduta
 function statoScheda(fid, pnorm) {
-  const s = SCHEDE.filter(x => x.fornitoreId === fid && (x.prodotti || []).map(norm).includes(pnorm)).sort((a, b) => ms(b.scadenza) - ms(a.scadenza))[0];
+  const s = SCHEDE.filter(x => canon(x.fornitoreId) === fid && (x.prodotti || []).map(norm).includes(pnorm)).sort((a, b) => ms(b.scadenza) - ms(a.scadenza))[0];
   if (!s) return { st: 'ko', t: 'manca' };
   const resto = ms(s.scadenza) - Date.now();
   if (resto < 0) return { st: 'ko', t: 'scaduta il ' + giorno(s.scadenza), s };
@@ -75,21 +139,26 @@ function statoScheda(fid, pnorm) {
   return { st: 'ok', t: 'valida fino al ' + giorno(s.scadenza), s };
 }
 function renderForn(filtro) {
-  const lista = fornitoriDaAcquisti().filter(f => !filtro || norm(f.nome).includes(filtro) || Object.keys(f.prodotti).some(p => p.includes(filtro)));
-  if (!lista.length) return '<div class="box muted">Nessun fornitore trovato. I fornitori compaiono da soli quando carichi DDT o fatture.</div>';
+  const tutti = fornitoriDaAcquisti(true), cerca = f => !filtro || f.nomi.some(n => norm(n).includes(filtro)) || Object.keys(f.prodotti).some(p => p.includes(filtro));
+  const lista = tutti.filter(f => !f.nascosto && cerca(f)), nascosti = tutti.filter(f => f.nascosto && cerca(f));
+  const elencoNascosti = nascosti.length ? `<details class="box"><summary class="muted" style="cursor:pointer">🚫 Nascosti perché non vendono alimenti (${nascosti.length})</summary>
+    <div class="nota" style="margin:6px 0">Energia, acqua, telefono, carburante, manutenzioni, acquisti online… Non servono schede tecniche. Se uno è finito qui per sbaglio, rimettilo.</div>
+    ${nascosti.map(f => `<div class="riga prod"><span>${esc(f.nome)}</span><span class="muted">${(FORN[f.id] || {}).escluso === true ? 'nascosto da te' : 'riconosciuto in automatico'}</span>${DARIO ? `<button class="b b2" onclick="segnaEscluso('${f.id}',false)">↩️ Vende alimenti, rimettilo</button>` : ''}</div>`).join('')}</details>` : '';
+  if (!lista.length) return '<div class="box muted">Nessun fornitore trovato. I fornitori compaiono da soli quando carichi DDT o fatture.</div>' + elencoNascosti;
   return lista.map(f => {
     const c = FORN[f.id] || {}, prodotti = Object.entries(f.prodotti);
     const stati = prodotti.map(([pn, p]) => ({ p, ...statoScheda(f.id, pn) }));
     const manc = stati.filter(x => x.st === 'ko'), scad = stati.filter(x => x.st === 'warn');
-    const ultimaRich = RICH.filter(r => r.fornitoreId === f.id).sort((a, b) => ms(b.creata) - ms(a.creata))[0];
+    const ultimaRich = RICH.filter(r => canon(r.fornitoreId) === f.id).sort((a, b) => ms(b.creata) - ms(a.creata))[0];
     const senzaMail = !String(c.email || '').includes('@');
     return `<div class="box">
       <div class="riga"><span class="nome">${esc(f.nome)}</span>
         <span class="chip ok">✅ ${stati.length - manc.length - scad.length}</span>${scad.length ? `<span class="chip warn">⚠️ ${scad.length} in scadenza</span>` : ''}${manc.length ? `<span class="chip ko">❌ ${manc.length} senza scheda</span>` : ''}
         <span style="flex:1"></span>
         ${DARIO ? `<button class="b" ${senzaMail || !manc.length ? 'disabled' : ''} onclick="chiedi('${f.id}','schede')" title="${senzaMail ? 'Prima inserisci l\'email del fornitore' : ''}">📧 Chiedi schede mancanti (${manc.length})</button>
-        <button class="b b2" ${senzaMail || !scad.length ? 'disabled' : ''} onclick="chiedi('${f.id}','rinnovo')">🔁 Chiedi rinnovo (${scad.length})</button>` : ''}
-      </div>
+        <button class="b b2" ${senzaMail || !scad.length ? 'disabled' : ''} onclick="chiedi('${f.id}','rinnovo')">🔁 Chiedi rinnovo (${scad.length})</button>
+        <button class="b b2" onclick="segnaEscluso('${f.id}',true)" title="Non vende alimenti: lo tolgo dall'elenco">🚫 Non alimentare</button>` : ''}
+      </div>${f.nomi.length > 1 ? `<div class="muted" style="margin-top:4px">Unito: ${f.nomi.map(esc).join(' · ')}</div>` : ''}
       <div class="riga" style="margin-top:8px">
         <input placeholder="Referente" value="${esc(c.referente || '')}" onchange="salvaForn('${f.id}','referente',this.value)" style="width:170px">
         <input placeholder="Email (più indirizzi separati da virgola)" value="${esc(c.email || '')}" onchange="salvaForn('${f.id}','email',this.value)" style="width:320px;${senzaMail ? 'border-color:#d9a' : ''}">
@@ -99,16 +168,16 @@ function renderForn(filtro) {
       <details style="margin-top:8px"><summary class="muted" style="cursor:pointer">Prodotti (${prodotti.length})</summary>
         ${stati.map(x => `<div class="prod"><span class="chip ${x.st}">${x.st === 'ok' ? '✅' : x.st === 'warn' ? '⚠️' : '❌'} ${esc(x.t)}</span> ${esc(x.p)}${x.s && x.s.url ? ` · <a href="${x.s.url}" target="_blank">apri PDF</a>` : ''}</div>`).join('') || '<div class="muted">Nessun prodotto registrato.</div>'}
       </details></div>`;
-  }).join('');
+  }).join('') + elencoNascosti;
 }
 function renderSchede(filtro) {
   const lista = SCHEDE.filter(s => !filtro || norm(s.fornitore + ' ' + s.file + ' ' + (s.prodotti || []).join(' ')).includes(filtro))
     .sort((a, b) => (b.daAbbinare ? 1 : 0) - (a.daAbbinare ? 1 : 0) || ms(b.ricevutaIl) - ms(a.ricevutaIl));
-  const forn = fornitoriDaAcquisti();
+  const forn = fornitoriDaAcquisti(true);
   let h = `<div class="box nota">I PDF che i fornitori inviano rispondendo alle richieste arrivano qui da soli (controllo ogni 30 minuti). Abbina ogni PDF ai prodotti a cui si riferisce: la scadenza è impostata a 12 mesi e puoi cambiarla.</div>`;
   if (!lista.length) return h + '<div class="box muted">Nessuna scheda tecnica archiviata per ora.</div>';
   h += lista.map(s => {
-    const f = forn.find(x => x.id === s.fornitoreId), prodotti = f ? Object.values(f.prodotti) : [];
+    const f = forn.find(x => x.id === canon(s.fornitoreId)), prodotti = f ? Object.values(f.prodotti) : [];
     return `<div class="box"><div class="riga"><span class="nome">📄 ${esc(s.file)}</span>${s.daAbbinare ? '<span class="chip warn">da abbinare</span>' : ''}
       <span class="muted">${esc(s.fornitore)} · ricevuta il ${giorno(s.ricevutaIl)}</span><span style="flex:1"></span>
       ${s.url ? `<a class="b b2" style="text-decoration:none;padding:7px 12px;border-radius:8px" href="${s.url}" target="_blank">Apri PDF</a>` : ''}
@@ -127,7 +196,7 @@ function renderLotti(filtro) {
   const oggi = Date.now();
   const scaduti = L.filter(a => a.sc.scadenza && ms(a.sc.scadenza) < oggi), vicini = L.filter(a => a.sc.scadenza && ms(a.sc.scadenza) >= oggi && ms(a.sc.scadenza) - oggi < 15 * GG);
   const senza = L.filter(a => !a.sc.scadenza && !a.sc.senzaScadenza);
-  const perForn = {}; senza.forEach(a => (perForn[slug(a.fornitore)] = perForn[slug(a.fornitore)] || []).push(a));
+  const perForn = {}; senza.forEach(a => { const k = canon(slug(a.fornitore)); (perForn[k] = perForn[k] || []).push(a); });
   let h = `<div class="box"><div class="riga">${scaduti.length ? `<span class="chip ko">⛔ ${scaduti.length} scaduti</span>` : ''}${vicini.length ? `<span class="chip warn">⏰ ${vicini.length} scadono entro 15 giorni</span>` : ''}<span class="chip ko">❓ ${senza.length} senza data di scadenza</span></div>
     <div class="nota" style="margin-top:6px">Scrivi la scadenza leggendola dall'etichetta o dal DDT. Se non la trovi, con il pulsante del fornitore parte la richiesta via mail (dopo la tua approvazione). "Senza scadenza" vale per i prodotti che non ne hanno (per esempio sale, zucchero).</div>
     ${DARIO && Object.keys(perForn).length ? `<div class="riga" style="margin-top:8px">${Object.entries(perForn).map(([fid, arr]) => `<button class="b b2" ${String((FORN[fid] || {}).email || '').includes('@') ? '' : 'disabled title="Manca l\'email del fornitore"'} onclick="chiedi('${fid}','scadenze')">📧 ${esc(arr[0].fornitore)}: chiedi ${arr.length} scadenze</button>`).join('')}</div>` : ''}</div>`;
@@ -139,18 +208,25 @@ function renderLotti(filtro) {
   return h;
 }
 function render() {
+  fornitoriDaAcquisti(true); // prepara l'unione dei doppioni per tutte le viste
   const f = norm(document.getElementById('cerca').value);
   const abb = SCHEDE.filter(s => s.daAbbinare).length, mancano = lotti().filter(a => !a.sc.scadenza && !a.sc.senzaScadenza).length;
   document.getElementById('n-abb').textContent = abb ? `(${abb} nuove)` : '';
   document.getElementById('n-lotti').textContent = mancano ? `(${mancano} da completare)` : '';
-  document.getElementById('contenuto').innerHTML = VISTA === 'forn' ? renderForn(f) : VISTA === 'schede' ? renderSchede(f) : renderLotti(f);
+  document.getElementById('contenuto').innerHTML = VISTA === 'forn' ? renderSuggeriti() + renderForn(f) : VISTA === 'schede' ? renderSchede(f) : renderLotti(f);
 }
 function vista(v) { VISTA = v; ['forn', 'schede', 'lotti'].forEach(x => document.getElementById('t-' + x).classList.toggle('on', x === v)); render(); }
 // ── Salvataggi ──
 async function salvaForn(id, campo, val) {
-  const nome = (fornitoriDaAcquisti().find(x => x.id === id) || {}).nome || id;
+  const nome = (fornitoriDaAcquisti(true).find(x => x.id === id) || {}).nome || id;
   FORN[id] = { ...(FORN[id] || { id, nome }), [campo]: val.trim() };
   await db.collection('fornitori').doc(id).set({ nome, [campo]: val.trim(), _ts: Date.now() }, { merge: true });
+  render();
+}
+async function segnaEscluso(id, v) {
+  const nome = (fornitoriDaAcquisti(true).find(x => x.id === id) || {}).nome || id;
+  FORN[id] = { ...(FORN[id] || { id, nome }), escluso: v };
+  await db.collection('fornitori').doc(id).set({ nome, escluso: v, _ts: Date.now() }, { merge: true });
   render();
 }
 async function salvaScheda(id, dati) { await db.collection('schede_tecniche').doc(id).set(dati, { merge: true }); }
@@ -161,9 +237,9 @@ async function abbina(id, p, on) {
 async function salvaScad(id, dati) { await db.collection('scadenze_lotti').doc(id).set({ ...dati, _ts: Date.now() }, { merge: true }); }
 // ── Richiesta al fornitore: si vede il testo, Dario approva, parte la mail ──
 async function chiedi(fid, tipo) {
-  const f = fornitoriDaAcquisti().find(x => x.id === fid), c = FORN[fid] || {};
+  const f = fornitoriDaAcquisti(true).find(x => x.id === fid), c = FORN[fid] || {};
   let prodotti = [];
-  if (tipo === 'scadenze') prodotti = lotti().filter(a => slug(a.fornitore) === fid && !a.sc.scadenza && !a.sc.senzaScadenza).map(a => `${a.ingrediente || a.descrizioneFornitore} — lotto ${a.lotto} (consegna del ${giorno(a.data)}${a.numero ? ', doc. n. ' + a.numero : ''})`);
+  if (tipo === 'scadenze') prodotti = lotti().filter(a => canon(slug(a.fornitore)) === fid && !a.sc.scadenza && !a.sc.senzaScadenza).map(a => `${a.ingrediente || a.descrizioneFornitore} — lotto ${a.lotto} (consegna del ${giorno(a.data)}${a.numero ? ', doc. n. ' + a.numero : ''})`);
   else prodotti = Object.entries(f.prodotti).filter(([pn]) => statoScheda(fid, pn).st === (tipo === 'rinnovo' ? 'warn' : 'ko')).map(([, p]) => p);
   if (!prodotti.length) return;
   const cosa = tipo === 'scadenze' ? 'la data di scadenza dei lotti' : tipo === 'rinnovo' ? 'l\'aggiornamento delle schede tecniche' : 'le schede tecniche';
