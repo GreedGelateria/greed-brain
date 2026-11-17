@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Libro ingredienti — GREED</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--verde:#1f3a1a;--verde2:#2d6a4f;--crema:#f6f1e6;--oro:#c8a34a;--rosso:#b33a2b;--arancio:#c27a12;--bordo:#e3d8c2}
+*{box-sizing:border-box} body{margin:0;font-family:'Outfit',sans-serif;background:var(--crema);color:#2a2a22}
+header{background:var(--verde);color:#f6f1e6;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-family:'Cormorant Garamond',serif;font-size:24px;margin:0;letter-spacing:.04em}
+main{max-width:1200px;margin:0 auto;padding:18px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tab{background:#fff;border:1px solid #d8ccb4;border-radius:9px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer}
+.tab.on{background:var(--verde2);color:#fff;border-color:var(--verde2)}
+.box{background:#fff;border:1px solid var(--bordo);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.muted{color:#6a6a5a;font-size:13px}
+.chip{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:10px;margin:0 4px 0 0;white-space:nowrap}
+.ok{background:#e4f2e7;color:#2d6a4f} .warn{background:#fdf0d5;color:#8a5a00} .ko{background:#fbe4e0;color:#a33} .vg{background:#1e7c46;color:#fff} .gf{background:#eef2ea;color:var(--verde2)}
+button.b{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:8px;padding:7px 12px;cursor:pointer;background:var(--verde2);color:#fff}
+button.b2{background:#eef2ea;color:var(--verde2)}
+input,select,textarea{font:inherit;font-size:13.5px;padding:6px 8px;border:1px solid #d8ccb4;border-radius:6px;width:100%}
+textarea{min-height:52px;resize:vertical}
+.barra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.barra input[type=search]{flex:1;min-width:200px}
+.barra label{display:flex;align-items:center;gap:6px;font-size:14px;white-space:nowrap}
+.barra label input{width:auto}
+/* Libro */
+.libro{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.prod{background:#fff;border:1px solid var(--bordo);border-radius:12px;padding:14px 16px;break-inside:avoid}
+.prod.vetrina{border-color:var(--oro);box-shadow:0 0 0 2px rgba(200,163,74,.25)}
+.prod h3{font-family:'Cormorant Garamond',serif;font-size:22px;margin:0 0 2px;color:var(--verde)}
+.prod .tipo{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#8a7a5a;margin-bottom:8px}
+.prod .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a7a5a;margin-top:8px}
+.prod .ing{font-size:14px;line-height:1.5}
+.prod .ing b,.prod .alg b{color:#7a2214}
+.prod .alg{font-size:14px}
+.prod .cons{font-size:13px;color:#4a4a3a}
+.manca{background:#fdf0d5;border-radius:4px;padding:0 3px}
+.avviso{background:#fdf0d5;border:1px solid #f0d9a4;color:#6b4a00;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14px}
+.intesta{display:none}
+/* Schede */
+.scheda{background:#fff;border:1px solid var(--bordo);border-radius:12px;padding:20px 24px;margin-bottom:16px}
+.scheda h2{font-family:'Cormorant Garamond',serif;font-size:26px;margin:0;color:var(--verde)}
+.scheda h4{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--verde2);margin:16px 0 6px;border-bottom:1px solid var(--bordo);padding-bottom:3px}
+.scheda table{width:100%;border-collapse:collapse;font-size:13px}
+.scheda td,.scheda th{border-bottom:1px solid #eee5d3;padding:4px 6px;text-align:left;vertical-align:top}
+.scheda th{font-size:11px;text-transform:uppercase;color:#8a7a5a}
+.scheda .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scheda .bozza{display:inline-block;background:#fbe4e0;color:#a33;font-weight:700;font-size:12px;padding:3px 10px;border-radius:6px;margin-left:8px;vertical-align:middle}
+.scheda .kv{display:grid;grid-template-columns:200px 1fr;gap:3px 12px;font-size:13.5px}
+.scheda .kv div:nth-child(odd){color:#6a6a5a}
+/* Ingredienti */
+.ingr{display:grid;grid-template-columns:minmax(180px,1.1fr) 2fr 1fr auto;gap:8px;align-items:start;border-top:1px solid #eee5d3;padding:10px 0}
+.ingr:first-child{border-top:0}
+@media(max-width:800px){.ingr{grid-template-columns:1fr}.scheda .kv{grid-template-columns:1fr}}
+/* Parametri */
+.par{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.par label{font-size:12px;font-weight:600;color:#6a6a5a;display:block;margin-bottom:3px}
+#login{max-width:420px;margin:60px auto;text-align:center}
+@media print{
+  header,.tabs,.barra,.avviso,.noprint,button{display:none!important}
+  body{background:#fff} main{padding:0;max-width:none}
+  .intesta{display:block;font-family:'Cormorant Garamond',serif;font-size:20px;margin-bottom:8px}
+  .libro{display:block;columns:2;column-gap:10mm}
+  .prod{border:1px solid #bbb;border-radius:0;margin-bottom:4mm;box-shadow:none!important;padding:3mm 4mm}
+  .prod h3{font-size:16px} .prod .ing,.prod .alg{font-size:10.5px} .prod .cons,.prod .tipo,.prod .lbl,.prod .alg span{font-size:9.5px!important}
+  .manca{background:none}
+  .scheda{border:0;border-radius:0;padding:0;margin:0;page-break-after:always}
+  .scheda table,.scheda .kv{font-size:10.5px}
+}
+</style></head><body>
+<header><h1>📖 Libro ingredienti</h1><span class="muted" style="color:#d8d0bc" id="chi"></span><span style="flex:1"></span><button class="b b2 noprint" onclick="window.print()">🖨️ Stampa</button></header>
+<main>
+<div id="login" class="box" style="display:none"><p>Accedi con l'account GREED.</p><button class="b" onclick="accedi()">Accedi con Google</button><p id="err" class="muted" style="color:#a33"></p></div>
+<div id="app" style="display:none">
+  <div class="tabs" id="tabs"></div>
+  <div id="avvisi"></div>
+  <div id="vista"></div>
+</div>
+</main>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// LIBRO INGREDIENTI (banco, D.Lgs 231/2017 art. 19) e SCHEDE PRODOTTO (HACCP)
+// Fonte unica: ricette di produzione del laboratorio (ricette_lab). Le basi usate come
+// ingrediente vengono aperte nei loro componenti; gli ingredienti composti prendono i
+// componenti da "ingredienti_composti" (compilati da Dario, precompilati dalle schede tecniche).
+// ─────────────────────────────────────────────────────────────────────────────
+let db, DARIO = false, VISTA = 'libro', SOLO_VETRINA = true, CERCA = '';
+let RIC = [], COMP = {}, PAR = null, VETRINA = [], FORN_ING = {};
+
+const ALLERGENI_REGOLE = [
+  {k:'LATTE',     re:/\blatte\b(?!\s+di\s+(cocco|soia|mandorl|riso|avena))|panna(?!\s+(soia|vegetale|da cucina alpro))|\bburro\b(?!\s+di\s+(cacao|arachid))|yogurt(?!\s+soia)|ricotta|mascarpone|philadelphia|stracchino|pecorino|parmigiano|caseina|siero di latte|lattosio|formaggi/i},
+  {k:'UOVA',      re:/tuorl|\buov[oa]|albume|maionese|savoiard/i},
+  {k:'GLUTINE',   re:/frumento|\bgrano\b|farina\s+(di\s+)?(grano|frumento|00|0\b|farro|orzo|segale)|\borzo\b|segale|\bavena\b(?!.*senza glutine)|farro|kamut|biscott(?!.*senza glutine)|\bpane\b|pangrattato|briciole|birra|\bmalto\b/i},
+  {k:'FRUTTA A GUSCIO', re:/pistacch|mandorl|nocciol|\bnoc[ei]\b(?!\s+moscata)|anacard|\bpecan|macadamia|noci del brasile|gianduia|pralinat|torrone/i},
+  {k:'ARACHIDI',  re:/arachid|peanut/i},
+  {k:'SOIA',      re:/\bsoia\b|tofu|edamame/i},
+  {k:'PESCE',     re:/\balic[ie]\b|acciug|colatura|tonno|baccal|salmone|merluzz|pesce|sgombr|sardin|worcestershire/i},
+  {k:'CROSTACEI', re:/gamber|scamp|aragost|granchi|crostace/i},
+  {k:'MOLLUSCHI', re:/cozz|vongol|polp[oi]|calamar|seppi|ostric/i},
+  {k:'SEDANO',    re:/sedano/i},
+  {k:'SENAPE',    re:/senape/i},
+  {k:'SESAMO',    re:/sesamo|tahin/i},
+  {k:'SOLFITI',   re:/\bvino\b|marsala|barolo|frascati|moscato|prosecco|vin santo|pedro xim|\baceto\b|spumante|passito|solfit|anidride solforosa/i},
+  {k:'LUPINI',    re:/lupin/i},
+];
+const MAN_ALG = {'latte':'LATTE','uov':'UOVA','glutin':'GLUTINE','guscio':'FRUTTA A GUSCIO','arachid':'ARACHIDI','soia':'SOIA','pesce':'PESCE','crostace':'CROSTACEI','mollusc':'MOLLUSCHI','sedano':'SEDANO','senape':'SENAPE','sesamo':'SESAMO','solfit':'SOLFITI','lupin':'LUPINI'};
+const ORDINE_ALG = ALLERGENI_REGOLE.map(a => a.k);
+const ANIMALE = /\blatte\b(?!\s+di\s+(cocco|soia|mandorl|riso|avena))|panna(?!\s+(soia|vegetale))|\bburro\b(?!\s+di\s+(cacao|arachid))|yogurt(?!\s+soia)|ricotta|mascarpone|formaggi|pecorino|parmigiano|tuorl|\buov[oa]|albume|miele|gelatina|alic[ie]|acciug|guanciale|pancetta|prosciutto|mortadell|porchett|carne|caseina|lattosio/i;
+
+// Componenti ricavati dalle schede tecniche dei fornitori (posta di gelateriagreed@gmail.com), da confermare in "Ingredienti"
+const PRECOMPILATI = [
+  { re:/pasta.*pistacch|pistacchio.*(pasta|green|puro)/i, componenti:'pistacchi 100%', tracce:'altra frutta a guscio (mandorle, nocciole)', fonte:'Scheda tecnica Gusto Etna — Pasta di pistacchio Green naturale (febbraio 2026)' },
+  { re:/pasta.*nocciol.*igp|nocciol.*igp.*pasta|nocciola piemonte/i, componenti:'nocciole Piemonte IGP tostate 100%', tracce:'', fonte:'Scheda tecnica Corilanga — Pasta di nocciola Piemonte IGP (luglio 2026)' },
+  { re:/pasta.*nocciol|nocciol.*pasta/i, componenti:'nocciole tostate 100% (Tonda Gentile Romana)', tracce:'', fonte:'Scheda tecnica Nocciola Market — Pasta di nocciole (luglio 2025)' },
+  { re:/meringa/i, componenti:'zucchero, albume d\'uovo, acqua', tracce:'', fonte:'Composizione tipica della meringa italiana: verifica con la tua ricetta' },
+  { re:/bombe|bomba/i, componenti:'zucchero, tuorlo d\'uovo, acqua', tracce:'', fonte:'Composizione tipica della pâte à bombe: verifica con la tua ricetta' },
+  { re:/proteine.*patata/i, componenti:'proteine di patata', tracce:'latte', fonte:'Scheda tecnica Gioia Group — Proteine di patata Saporepuro (febbraio 2026)' },
+  { re:/pan di spagna/i, componenti:'uova, fecola di patate, zucchero, sciroppo di glucosio, umidificante: glicerolo; emulsionante: mono e digliceridi degli acidi grassi (E471); fibra di barbabietola, addensante: gomma di guar; sale, conservante: E202; aroma', tracce:'latte, lupini', fonte:'Scheda tecnica Nocciolcono — Pan di Spagna senza glutine cod. 145 (febbraio 2026)' },
+  { re:/con[oi]\b.*(senza glutine|gf)|mini ?con|conett/i, componenti:'farina di riso, amido di mais, fecola di patate, farina di soia, zucchero, olio di semi di girasole alto oleico, emulsionante: lecitina di soia; sale, zucchero caramellizzato, agente lievitante: bicarbonato di sodio; addensanti: gomma guar, gomma xantano; aroma naturale', tracce:'', fonte:'Scheda tecnica Nocciolcono — Mini coni stampati senza glutine cod. 047 (febbraio 2026)' },
+];
+// Probabili ingredienti composti (vanno scritti con i componenti tra parentesi)
+const RE_COMPOSTO = /pasta|crema|cioccolat|copertura|neutro|stabilizz|addensant|meringa|bombe|biscott|cialda|\bcon[oi]\b|pan di spagna|savoiard|granella|pralinat|variegat|marmellat|confettura|salsa|sciroppo(?! di glucosio)|amarett|caramell|gianduia|frollin|wafer|topping|aroma|liquore|\brum\b|vino|marsala|solubile|preparato|\bmix\b|base\b|fondente|gocce|scaglie|praline|crumble|cookie|brownie|torrone|sorbetto/i;
+
+// Parametri di processo per le schede prodotto. Finché Dario non li salva, le schede escono come BOZZA.
+const PAR_DEF = {
+  confermati: false,
+  sede: 'GREED Srl — laboratorio di Via Cernaia 28, 00044 Frascati (RM)',
+  vendita: 'GREED Gelateria Naturale — Piazza Roma 16, Frascati',
+  claimGlutine: 'Senza glutine: gelateria aderente al circuito AIC (Associazione Italiana Celiachia) dal 2004',
+  tracceLab: '',
+  confezionamento: 'Vaschette in acciaio inox per la vetrina; per l\'asporto vaschette in polistirolo/carta per alimenti, coni e coppette.',
+  lotto: 'Lotto = numero del registro di produzione del gestionale del laboratorio, riportato sull\'etichetta di produzione insieme a data di produzione e scadenza.',
+  uso: 'Consumo diretto tal quale. Prodotto destinato a tutti i consumatori, compresi i celiaci; non adatto a chi è allergico agli allergeni indicati.',
+  controlli: 'Ricevimento merci | Contaminazione, catena del freddo interrotta | Controllo DDT, lotto, integrità e temperatura | Prodotti refrigerati ≤ +4 °C, surgelati ≤ -18 °C | Respingere la merce, registrare la non conformità\nPastorizzazione | Sopravvivenza di microrganismi patogeni | Temperatura e tempo registrati dal pastorizzatore | (indicare) | Ripetere il ciclo o eliminare la miscela\nAbbattimento | Moltiplicazione microbica | Temperatura al cuore | -18 °C al cuore | Prolungare l\'abbattimento; se non raggiunta, eliminare\nConservazione e vetrina | Moltiplicazione microbica, scongelamento | Sensori di temperatura con registrazione continua | Conservatori ≤ -18 °C, vetrina -12/-14 °C | Spostare il prodotto, valutarne lo stato, registrare la non conformità\nAllergeni | Contaminazione crociata | Pulizia di attrezzature e utensili tra un gusto e l\'altro, palette dedicate | Nessun residuo visibile | Ripetere la pulizia; informare il cliente',
+  tipi: {
+    gelato:     { nome:'Gelato a base latte', pastorizzazione:'Pastorizzazione della miscela a 85 °C, poi raffreddamento rapido a +4 °C', maturazione:'4–12 ore a +4 °C', mantecazione:'Mantecatore discontinuo, con aggiunta degli ingredienti di gusto', abbattimento:'Abbattitore a -35 °C fino a -18 °C al cuore', conservazione:'Conservatori a -18 °C o inferiore', vetrina:'-12 / -14 °C', durata:'', consumatore:'Da consumare subito. Per l\'asporto: conservare in freezer a -18 °C; una volta sciolto non ricongelare.' },
+    vegano:     { nome:'Gelato vegano / sorbetto', pastorizzazione:'Pastorizzazione della miscela a 85 °C (sorbetti di frutta fresca: preparazione a freddo con frutta lavata)', maturazione:'4–12 ore a +4 °C', mantecazione:'Mantecatore discontinuo', abbattimento:'Abbattitore a -35 °C fino a -18 °C al cuore', conservazione:'Conservatori a -18 °C o inferiore', vetrina:'-12 / -14 °C', durata:'', consumatore:'Da consumare subito. Per l\'asporto: conservare in freezer a -18 °C; una volta sciolto non ricongelare.' },
+    semifreddo: { nome:'Semifreddo', pastorizzazione:'Meringa italiana / pâte à bombe con sciroppo di zucchero cotto a 121 °C versato sugli albumi/tuorli', maturazione:'—', mantecazione:'Montatura e incorporazione delle componenti, colatura negli stampi', abbattimento:'Abbattitore a -35 °C fino a -18 °C al cuore', conservazione:'Conservatori a -18 °C o inferiore', vetrina:'-12 / -14 °C', durata:'', consumatore:'Da consumare subito. Per l\'asporto: conservare in freezer a -18 °C; una volta scongelato non ricongelare.' },
+    torta:      { nome:'Torta gelato', pastorizzazione:'Componenti gelato pastorizzati come da scheda del gelato', maturazione:'—', mantecazione:'Assemblaggio a strati in stampo, decorazione', abbattimento:'Abbattitore a -35 °C fino a -18 °C al cuore', conservazione:'Conservatori a -18 °C o inferiore', vetrina:'-12 / -14 °C', durata:'', consumatore:'Conservare in freezer a -18 °C. Togliere dal freezer 10 minuti prima di servire; una volta scongelata non ricongelare.' }
+  }
+};
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const slug = s => norm(s).replace(/ /g, '-').slice(0, 120) || 'x';
+function bello(n) {
+  const piccole = new Set(['di','del','della','delle','dei','e','con','al','alla','allo','ai','d','in','da','a']);
+  const sigle = new Set(['dop','igp','bio','dpo','gf']);
+  return String(n || '').toLowerCase().split(/\s+/).map((w, i) => sigle.has(w) ? w.toUpperCase() : (i > 0 && (piccole.has(w) || /^(all|dell|nell|sull|dall|coll|l|d)'/.test(w))) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+const minuscolo = n => String(n || '').toLowerCase().replace(/\b(dop|igp|bio|gf)\b/g, m => m.toUpperCase());
+const eBase = r => r && (r.tipo === 'base' || /^base\b|\bbase\s+(bianca|gialla|latte|frutta|neutra|vegan)/i.test(r.nome));
+function trovaBase(nome) { const n = norm(nome); return RIC.find(r => eBase(r) && norm(r.nome) === n); }
+function precompilato(nome) { return PRECOMPILATI.find(p => p.re.test(nome)) || null; }
+function infoIngrediente(nome) {
+  const c = COMP[slug(nome)];
+  if (c) return { tipo: c.semplice ? 'semplice' : 'composto', componenti: c.componenti || '', tracce: c.tracce || '', fonte: c.fonte || '', stato: c.semplice ? 'semplice' : (c.componenti ? 'ok' : 'manca') };
+  const p = precompilato(nome);
+  if (p) return { tipo: 'composto', componenti: p.componenti, tracce: p.tracce, fonte: p.fonte, stato: 'precompilato' };
+  if (trovaBase(nome)) return { tipo: 'base', componenti: '', tracce: '', fonte: 'ricetta della base', stato: 'ok' };
+  return RE_COMPOSTO.test(nome) ? { tipo: 'composto', componenti: '', tracce: '', fonte: '', stato: 'manca' } : { tipo: 'semplice', componenti: '', tracce: '', fonte: '', stato: 'semplice' };
+}
+// Dicitura di un ingrediente: semplice, composto con componenti, base aperta nella sua ricetta
+function dicitura(nome, prof = 0) {
+  const base = prof < 2 && trovaBase(nome);
+  if (base && (base.ingredienti || []).length) {
+    const dentro = [...base.ingredienti].filter(i => +i.d > 0).sort((a, b) => b.d - a.d).map(i => dicitura(i.nome, prof + 1));
+    return { testo: `${minuscolo(nome)} (${dentro.map(x => x.testo).join(', ')})`, mancanti: dentro.flatMap(x => x.mancanti), tracce: dentro.flatMap(x => x.tracce) };
+  }
+  const info = infoIngrediente(nome);
+  if (info.tipo === 'composto' && info.componenti) return { testo: `${minuscolo(nome)} (${info.componenti})`, mancanti: [], tracce: info.tracce ? [info.tracce] : [] };
+  return { testo: minuscolo(nome), mancanti: info.stato === 'manca' ? [nome] : [], tracce: [] };
+}
+function evidenzia(testo) {
+  let h = esc(testo);
+  ALLERGENI_REGOLE.forEach(a => { h = h.replace(new RegExp(a.re.source, 'gi'), m => `<b>${m}</b>`); });
+  h = h.replace(/<b><b>(.*?)<\/b><\/b>/g, '<b>$1</b>');
+  // il grassetto prende la parola intera ("pistacchio", non "pistacchi"+"o")
+  const L = 'a-zA-ZàèéìòùÀÈÉÌÒÙ';
+  return h.replace(new RegExp(`([${L}]*)<b>([^<]+)</b>([${L}]*)`, 'g'), '<b>$1$2$3</b>');
+}
+function prodotto(r) {
+  const ing = [...(r.ingredienti || [])].filter(i => i.nome && +i.d > 0).sort((a, b) => b.d - a.d);
+  const parti = ing.map(i => dicitura(i.nome));
+  const testo = parti.length ? parti.map(p => p.testo).join(', ') : String(r.lista_ing || '').trim();
+  const mancanti = [...new Set(parti.flatMap(p => p.mancanti))];
+  const set = new Set();
+  ALLERGENI_REGOLE.forEach(a => { if (a.re.test(testo)) set.add(a.k); });
+  const man = String(r.allergeni || '').toLowerCase();
+  Object.entries(MAN_ALG).forEach(([k, v]) => { if (man.includes(k)) set.add(v); });
+  const allergeni = [...set].sort((a, b) => ORDINE_ALG.indexOf(a) - ORDINE_ALG.indexOf(b));
+  const tracce = [...new Set(parti.flatMap(p => p.tracce).join(', ').split(/,\s*/).map(s => s.trim()).filter(Boolean))];
+  const vegano = testo && !ANIMALE.test(testo) && !allergeni.some(a => ['LATTE', 'UOVA', 'PESCE', 'CROSTACEI', 'MOLLUSCHI'].includes(a));
+  const tipo = r.tipo === 'semifreddo' ? 'semifreddo' : r.tipo === 'torta' ? 'torta' : vegano ? 'vegano' : 'gelato';
+  const tot = ing.reduce((t, i) => t + (+i.d || 0), 0);
+  return { r, nome: bello(r.nome), ing, parti, testo, mancanti, allergeni, tracce, vegano, tipo, tot, senzaGlutine: !allergeni.includes('GLUTINE') };
+}
+const par = () => { const p = JSON.parse(JSON.stringify(PAR_DEF)); if (PAR) { Object.assign(p, PAR, { tipi: { ...p.tipi } }); Object.keys(p.tipi).forEach(k => p.tipi[k] = { ...PAR_DEF.tipi[k], ...((PAR.tipi || {})[k] || {}) }); } return p; };
+const inVetrina = nome => VETRINA.some(v => { const a = norm(v), b = norm(nome); return a === b || (a.length > 4 && (b.includes(a) || a.includes(b))); });
+const prodotti = () => RIC.filter(r => !eBase(r) && ((r.ingredienti || []).length || r.lista_ing)).map(prodotto).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+
+// ── VISTE ──
+function tabs() {
+  const T = [['libro', '📖 Libro (banco)']].concat(DARIO ? [['schede', '📋 Schede prodotto'], ['ingredienti', '🧾 Ingredienti composti'], ['parametri', '⚙️ Parametri di processo']] : []);
+  document.getElementById('tabs').innerHTML = T.map(([k, t]) => `<button class="tab ${VISTA === k ? 'on' : ''}" onclick="vai('${k}')">${t}</button>`).join('');
+}
+function vai(v) { VISTA = v; try { history.replaceState(null, '', '#' + v); } catch (e) {} render(); }
+function avvisi(P) {
+  if (!DARIO) return '';
+  const manc = [...new Set(P.flatMap(p => p.mancanti))], prec = ingredientiTutti().filter(n => infoIngrediente(n).stato === 'precompilato').length, pp = par();
+  const a = [];
+  if (manc.length) a.push(`<b>${manc.length} ingredient${manc.length === 1 ? 'e composto' : 'i composti'} senza componenti</b> (evidenziati in giallo nel libro): completali in <a href="#ingredienti" onclick="vai('ingredienti');return false">Ingredienti composti</a>.`);
+  if (prec) a.push(`${prec} ingredient${prec === 1 ? 'e precompilato' : 'i precompilati'} dalle schede tecniche dei fornitori: controlla e conferma.`);
+  if (!pp.confermati) a.push(`Parametri di processo non ancora confermati: le schede prodotto escono come <b>BOZZA</b>. <a href="#parametri" onclick="vai('parametri');return false">Controllali</a>.`);
+  return a.length ? `<div class="avviso noprint">⚠️ ${a.join('<br>')}</div>` : '';
+}
+function render() {
+  tabs();
+  const P = prodotti();
+  document.getElementById('avvisi').innerHTML = avvisi(P);
+  const el = document.getElementById('vista');
+  if (!RIC.length) { el.innerHTML = '<div class="box muted">Caricamento delle ricette del laboratorio…</div>'; return; }
+  if (VISTA === 'schede' && DARIO) return el.innerHTML = vistaSchede(P);
+  if (VISTA === 'ingredienti' && DARIO) return el.innerHTML = vistaIngredienti();
+  if (VISTA === 'parametri' && DARIO) return el.innerHTML = vistaParametri();
+  el.innerHTML = vistaLibro(P);
+}
+function filtro(P) {
+  const q = norm(CERCA);
+  return P.filter(p => (!SOLO_VETRINA || inVetrina(p.r.nome)) && (!q || norm(p.nome).includes(q) || norm(p.testo).includes(q)));
+}
+function vistaLibro(P) {
+  const L = filtro(P), pp = par(), oggi = new Date().toLocaleDateString('it-IT');
+  const nVet = P.filter(p => inVetrina(p.r.nome)).length;
+  return `<div class="barra"><input type="search" id="cerca" placeholder="Cerca un gusto o un ingrediente (es. nocciola, latte)…" value="${esc(CERCA)}" oninput="CERCA=this.value;render();setTimeout(()=>{const c=document.getElementById('cerca');c.focus();c.setSelectionRange(c.value.length,c.value.length)})">
+    <label><input type="checkbox" ${SOLO_VETRINA ? 'checked' : ''} onchange="SOLO_VETRINA=this.checked;render()"> Solo in vetrina oggi (${nVet})</label></div>
+    <div class="intesta">GREED Gelateria Naturale — Libro degli ingredienti e degli allergeni · ${L.length} prodotti · aggiornato al ${oggi}</div>
+    <p class="muted noprint">Ingredienti in ordine decrescente di peso. In <b style="color:#7a2214">grassetto</b> gli allergeni (Reg. UE 1169/2011, all. II). ${esc(pp.claimGlutine)}.</p>
+    ${L.length ? `<div class="libro">${L.map(p => cartaLibro(p, pp)).join('')}</div>` : `<div class="box muted">${SOLO_VETRINA && !nVet ? 'Nessun gusto acceso in vetrina oggi: togli la spunta per vedere tutte le ricette.' : 'Nessun prodotto trovato.'}</div>`}
+    <p class="muted" style="margin-top:14px">${esc(pp.vendita)} · prodotto da ${esc(pp.sede)}</p>`;
+}
+function cartaLibro(p, pp) {
+  let ing = evidenzia(p.testo);
+  if (DARIO) p.mancanti.forEach(m => { ing = ing.replace(esc(minuscolo(m)), `<span class="manca" title="Componenti mancanti: completali in Ingredienti composti">${esc(minuscolo(m))}</span>`); });
+  const t = pp.tipi[p.tipo];
+  return `<div class="prod ${inVetrina(p.r.nome) ? 'vetrina' : ''}">
+    <h3>${esc(p.nome)}</h3>
+    <div class="tipo">${esc(t.nome)} ${p.vegano ? '<span class="chip vg">VEGAN</span>' : ''}${p.senzaGlutine ? '<span class="chip gf">SENZA GLUTINE</span>' : ''}</div>
+    <div class="lbl">Ingredienti</div><div class="ing">${ing ? ing.charAt(0).toUpperCase() + ing.slice(1) : '<span class="manca">ingredienti non inseriti nella ricetta</span>'}.</div>
+    <div class="lbl">Allergeni</div><div class="alg">${p.allergeni.length ? '<b>' + p.allergeni.map(a => a.toLowerCase()).join(', ') + '</b>' : 'Nessuno dei 14 allergeni'}${p.tracce.length ? `<br><span style="font-size:13px">Può contenere tracce di: ${esc(p.tracce.join(', '))}.</span>` : ''}${pp.tracceLab ? `<br><span style="font-size:13px">${esc(pp.tracceLab)}</span>` : ''}${p.mancanti.length ? '<br><span style="font-size:13px;color:#8a5a00">⚠️ Elenco in aggiornamento: in caso di allergie chiedi conferma al laboratorio.</span>' : ''}</div>
+    <div class="lbl">Conservazione</div><div class="cons">Vetrina ${esc(t.vetrina)}. ${esc(t.consumatore)}</div>
+  </div>`;
+}
+function vistaSchede(P) {
+  const L = filtro(P), pp = par(), oggi = new Date().toLocaleDateString('it-IT');
+  return `<div class="barra"><input type="search" id="cerca" placeholder="Cerca un prodotto…" value="${esc(CERCA)}" oninput="CERCA=this.value;render();setTimeout(()=>{const c=document.getElementById('cerca');c.focus();c.setSelectionRange(c.value.length,c.value.length)})">
+    <label><input type="checkbox" ${SOLO_VETRINA ? 'checked' : ''} onchange="SOLO_VETRINA=this.checked;render()"> Solo in vetrina oggi</label>
+    <span class="muted">${L.length} schede · 🖨️ Stampa = una scheda per pagina</span></div>
+    ${L.map(p => scheda(p, pp, oggi)).join('') || '<div class="box muted">Nessuna scheda.</div>'}`;
+}
+function scheda(p, pp, oggi) {
+  const t = pp.tipi[p.tipo];
+  const righe = p.ing.map((i, k) => { const f = FORN_ING[norm(i.nome)]; return `<tr><td>${evidenzia(p.parti[k].testo)}</td><td class="num">${p.tot ? (i.d / p.tot * 100).toFixed(1).replace('.', ',') + '%' : '—'}</td><td>${esc(f || '')}</td></tr>`; }).join('');
+  const ctrl = String(pp.controlli || '').split('\n').filter(x => x.trim()).map(l => `<tr>${l.split('|').map(c => `<td>${esc(c.trim())}</td>`).join('')}</tr>`).join('');
+  const kv = (k, v) => `<div>${k}</div><div>${v}</div>`;
+  return `<div class="scheda">
+    <h2>Scheda prodotto — ${esc(p.nome)} ${pp.confermati ? '' : '<span class="bozza">BOZZA — parametri da confermare</span>'}</h2>
+    <div class="muted">${esc(pp.sede)} · revisione del ${oggi} · codice ${esc(slug(p.r.nome))}</div>
+    <h4>1. Identificazione</h4>
+    <div class="kv">${kv('Denominazione', esc(p.nome))}${kv('Tipologia', esc(t.nome))}${kv('Caratteristiche', [p.vegano ? 'vegano (nessun ingrediente di origine animale)' : '', p.senzaGlutine ? esc(pp.claimGlutine) : 'CONTIENE GLUTINE'].filter(Boolean).join(' · '))}${kv('Luogo di vendita', esc(pp.vendita))}</div>
+    <h4>2. Composizione</h4>
+    <table><tr><th>Ingrediente (con componenti)</th><th class="num">% sulla ricetta</th><th>Fornitore</th></tr>${righe || `<tr><td colspan="3">${esc(p.testo) || 'Ingredienti non inseriti nella ricetta'}</td></tr>`}</table>
+    <p style="font-size:13px;margin:6px 0 0"><b>Dicitura per il consumatore:</b> ${evidenzia(p.testo)}.</p>
+    ${p.mancanti.length ? `<p class="noprint" style="color:#a33;font-size:13px">⚠️ Componenti da completare: ${esc(p.mancanti.join(', '))}</p>` : ''}
+    <h4>3. Allergeni</h4>
+    <div class="kv">${kv('Presenti come ingrediente', p.allergeni.length ? '<b>' + p.allergeni.map(a => a.toLowerCase()).join(', ') + '</b>' : 'nessuno dei 14 allergeni (Reg. UE 1169/2011, all. II)')}${kv('Possibili tracce', esc([...p.tracce, pp.tracceLab].filter(Boolean).join(' · ') || '—'))}</div>
+    <h4>4. Processo produttivo</h4>
+    <div class="kv">${kv('Preparazione e trattamento termico', esc(t.pastorizzazione))}${kv('Maturazione', esc(t.maturazione))}${kv('Mantecazione / lavorazione', esc(t.mantecazione))}${kv('Abbattimento', esc(t.abbattimento))}</div>
+    <h4>5. Conservazione e durata</h4>
+    <div class="kv">${kv('Laboratorio', esc(t.conservazione))}${kv('Vetrina', esc(t.vetrina))}${kv('Durata', esc(t.durata || 'come da etichetta di produzione'))}${kv('Indicazioni al consumatore', esc(t.consumatore))}</div>
+    <h4>6. Confezionamento e rintracciabilità</h4>
+    <div class="kv">${kv('Confezionamento', esc(pp.confezionamento))}${kv('Lotto', esc(pp.lotto))}</div>
+    <h4>7. Uso previsto</h4><p style="font-size:13.5px;margin:0">${esc(pp.uso)}</p>
+    <h4>8. Pericoli e controlli</h4>
+    <table><tr><th>Fase</th><th>Pericolo</th><th>Controllo</th><th>Limite</th><th>Azione correttiva</th></tr>${ctrl}</table>
+    <p class="muted" style="margin-top:14px">Redatta da: Dario Rossi, GREED Srl · Firma ____________________</p>
+  </div>`;
+}
+function ingredientiTutti() {
+  const s = new Set();
+  RIC.forEach(r => (r.ingredienti || []).forEach(i => { if (i.nome && !trovaBase(i.nome)) s.add(i.nome.trim()); }));
+  const per = {}; [...s].forEach(n => { const k = norm(n); if (!per[k]) per[k] = n; });
+  return Object.values(per).sort((a, b) => a.localeCompare(b, 'it'));
+}
+let FILTRO_ING = 'dafare';
+function vistaIngredienti() {
+  const tutti = ingredientiTutti(), uso = n => RIC.filter(r => !eBase(r) && (r.ingredienti || []).some(i => norm(i.nome) === norm(n))).length;
+  const lista = tutti.filter(n => { const s = infoIngrediente(n).stato; return FILTRO_ING === 'tutti' || (FILTRO_ING === 'dafare' ? (s === 'manca' || s === 'precompilato') : s === 'ok' || s === 'semplice'); });
+  const lab = { manca: '<span class="chip ko">da completare</span>', precompilato: '<span class="chip warn">precompilato: conferma</span>', ok: '<span class="chip ok">completo</span>', semplice: '<span class="chip ok">semplice</span>' };
+  return `<div class="barra"><select onchange="FILTRO_ING=this.value;render()" style="width:auto">
+      <option value="dafare" ${FILTRO_ING === 'dafare' ? 'selected' : ''}>Da completare o confermare</option><option value="fatti" ${FILTRO_ING === 'fatti' ? 'selected' : ''}>Già a posto</option><option value="tutti" ${FILTRO_ING === 'tutti' ? 'selected' : ''}>Tutti (${tutti.length})</option></select>
+    <span class="muted">Scrivi i componenti come sulla scheda tecnica del fornitore, in ordine di peso. Se è un ingrediente semplice (es. latte, zucchero) scegli "Semplice".</span></div>
+    <div class="box">${lista.map(n => { const i = infoIngrediente(n), id = slug(n), al = ALLERGENI_REGOLE.filter(a => a.re.test(n + ' ' + i.componenti)).map(a => a.k.toLowerCase());
+      return `<div class="ingr"><div><b>${esc(bello(n))}</b><br>${lab[i.stato]} <span class="muted">${uso(n)} ricett${uso(n) === 1 ? 'a' : 'e'}</span>${al.length ? `<br><span class="muted">allergeni: <b style="color:#7a2214">${al.join(', ')}</b></span>` : ''}</div>
+        <div><select id="t-${id}" style="margin-bottom:5px" onchange="document.getElementById('c-${id}').disabled=this.value==='s'"><option value="c" ${i.tipo !== 'semplice' ? 'selected' : ''}>Composto</option><option value="s" ${i.tipo === 'semplice' ? 'selected' : ''}>Semplice</option></select>
+          <textarea id="c-${id}" placeholder="es. pasta di cacao, zucchero, burro di cacao, emulsionante: lecitina di soia" ${i.tipo === 'semplice' ? 'disabled' : ''}>${esc(i.componenti)}</textarea></div>
+        <div><input id="tr-${id}" placeholder="Può contenere tracce di…" value="${esc(i.tracce)}"><input id="f-${id}" style="margin-top:5px" placeholder="Fonte (es. scheda tecnica, data)" value="${esc(i.fonte)}"></div>
+        <div><button class="b" onclick="salvaIng('${encodeURIComponent(n)}')">Salva</button></div></div>`; }).join('') || '<p class="muted">Niente da completare.</p>'}</div>`;
+}
+async function salvaIng(nEnc) {
+  const n = decodeURIComponent(nEnc), id = slug(n);
+  const semplice = document.getElementById('t-' + id).value === 's';
+  const d = { nome: n, semplice, componenti: semplice ? '' : document.getElementById('c-' + id).value.trim(), tracce: document.getElementById('tr-' + id).value.trim(), fonte: document.getElementById('f-' + id).value.trim(), _ts: Date.now() };
+  if (!semplice && !d.componenti) { alert('Scrivi i componenti, oppure scegli "Semplice".'); return; }
+  COMP[id] = d; render();
+  try { await db.collection('ingredienti_composti').doc(id).set(d); } catch (e) { alert('Non salvato: ' + e.message); }
+}
+function vistaParametri() {
+  const p = par(), f = (id, lab, v, area) => `<div><label for="${id}">${lab}</label>${area ? `<textarea id="${id}" rows="${area}">${esc(v)}</textarea>` : `<input id="${id}" value="${esc(v)}">`}</div>`;
+  const campi = [['pastorizzazione', 'Preparazione e trattamento termico'], ['maturazione', 'Maturazione'], ['mantecazione', 'Mantecazione / lavorazione'], ['abbattimento', 'Abbattimento'], ['conservazione', 'Conservazione in laboratorio'], ['vetrina', 'Temperatura vetrina'], ['durata', 'Durata (shelf life)'], ['consumatore', 'Indicazioni al consumatore']];
+  return `<div class="avviso">Sono valori tipici di una gelateria, scritti da me come punto di partenza: <b>controllali e correggili</b> con i tuoi tempi e temperature reali (devono coincidere con il piano HACCP). Quando li salvi, dalle schede sparisce la scritta BOZZA.</div>
+    ${Object.entries(p.tipi).map(([k, t]) => `<div class="box"><h3 style="margin:0 0 10px;color:var(--verde)">${esc(t.nome)}</h3><div class="par">${campi.map(([c, l]) => f(`p-${k}-${c}`, l, t[c], c === 'consumatore' || c === 'pastorizzazione' ? 2 : 0)).join('')}</div></div>`).join('')}
+    <div class="box"><div class="par">${f('p-sede', 'Sede di produzione', p.sede)}${f('p-vendita', 'Luogo di vendita', p.vendita)}${f('p-claimGlutine', 'Dicitura senza glutine', p.claimGlutine, 2)}${f('p-tracceLab', 'Avvertenza tracce valida per tutto il laboratorio (facoltativa)', p.tracceLab, 2)}${f('p-confezionamento', 'Confezionamento', p.confezionamento, 2)}${f('p-lotto', 'Lotto e rintracciabilità', p.lotto, 2)}${f('p-uso', 'Uso previsto', p.uso, 2)}</div>
+      <div style="margin-top:10px"><label for="p-controlli" style="font-size:12px;font-weight:600;color:#6a6a5a">Pericoli e controlli — una riga per fase: Fase | Pericolo | Controllo | Limite | Azione correttiva</label><textarea id="p-controlli" rows="7">${esc(p.controlli)}</textarea></div></div>
+    <button class="b" onclick="salvaPar()">✅ Salva e conferma i parametri</button>`;
+}
+async function salvaPar() {
+  const p = par(), v = id => (document.getElementById(id) || {}).value;
+  const nuovo = { confermati: true, _ts: Date.now(), tipi: {} };
+  ['sede', 'vendita', 'claimGlutine', 'tracceLab', 'confezionamento', 'lotto', 'uso', 'controlli'].forEach(k => nuovo[k] = (v('p-' + k) ?? p[k]).trim());
+  Object.keys(p.tipi).forEach(k => { nuovo.tipi[k] = { nome: p.tipi[k].nome }; ['pastorizzazione', 'maturazione', 'mantecazione', 'abbattimento', 'conservazione', 'vetrina', 'durata', 'consumatore'].forEach(c => nuovo.tipi[k][c] = (v(`p-${k}-${c}`) ?? p.tipi[k][c]).trim()); });
+  PAR = nuovo; render();
+  try { await db.collection('schede_prodotto').doc('parametri').set(nuovo); alert('Parametri salvati: le schede prodotto non sono più in bozza.'); } catch (e) { alert('Non salvato: ' + e.message); }
+}
+
+// ── AVVIO ──
+function avvia() {
+  firebase.initializeApp({ apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", authDomain:"club-greed.firebaseapp.com", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" }, 'libro');
+  const app = firebase.app('libro'); db = app.firestore();
+  app.auth().onAuthStateChanged(u => {
+    const ok = u && ['gelateriagreed@gmail.com', 'team.greedfrascati@gmail.com'].includes(u.email);
+    document.getElementById('login').style.display = ok ? 'none' : 'block'; document.getElementById('app').style.display = ok ? 'block' : 'none';
+    if (u && !ok) { document.getElementById('err').textContent = 'Account non autorizzato.'; app.auth().signOut(); }
+    if (!ok) return;
+    DARIO = u.email === 'gelateriagreed@gmail.com';
+    document.getElementById('chi').textContent = DARIO ? 'Dario' : 'Banco';
+    const h = (location.hash || '').slice(1); if (DARIO && ['schede', 'ingredienti', 'parametri'].includes(h)) { VISTA = h; SOLO_VETRINA = h !== 'schede'; }
+    db.collection('ricette_lab').onSnapshot(s => { RIC = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.nome && !r.eliminata); render(); }, e => { document.getElementById('vista').innerHTML = '<div class="box" style="color:#a33">⚠️ ' + esc(e.message) + '</div>'; });
+    db.collection('ingredienti_composti').onSnapshot(s => { COMP = {}; s.forEach(d => COMP[d.id] = d.data()); render(); }, () => {});
+    db.collection('config').doc('gusti').onSnapshot(s => { VETRINA = ((s.exists && s.data().lista) || []).filter(g => g && (g.a || g.attivo) && g.n).map(g => g.n); render(); }, () => {});
+    if (DARIO) {
+      db.collection('schede_prodotto').doc('parametri').onSnapshot(s => { PAR = s.exists ? s.data() : null; render(); }, () => {});
+      db.collection('acquistiStorico').get().then(s => { const ult = {}; s.forEach(d => { const x = d.data(); if (!x.ingrediente || !x.fornitore) return; const k = norm(x.ingrediente), t = String(x.data || ''); if (!ult[k] || t > ult[k].t) ult[k] = { t, f: x.fornitore }; }); FORN_ING = {}; Object.entries(ult).forEach(([k, v]) => FORN_ING[k] = bello(v.f)); render(); }).catch(() => {});
+    }
+  });
+  window.accedi = () => { const p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); app.auth().signInWithPopup(p).catch(e => { document.getElementById('err').textContent = e.message; }); };
+}
+if (!window.__PROVA) avvia();
+</script></body></html>

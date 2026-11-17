@@ -82,6 +82,7 @@ const B = 'https://greedgelateria.github.io/';
 const PROGRAMMI = [
   { g:'Banco', id:'banco', e:'🛒', n:'Cassa, clienti e ordini', d:'Punti, sconti, check-in, gift card, ordini online', u:B+'club-greed-crm/', r:['admin','staff'], post:['banco'] },
   { g:'Banco', id:'gusti', e:'🍦', n:'Gusti in vetrina', d:'Accendi e spegni i gusti, orari, Ora Furba', u:B+'admin-gusti/', r:['admin','staff'], post:['banco'] },
+  { g:'Banco', id:'libro', e:'📖', n:'Libro ingredienti', d:'Ingredienti e allergeni di ogni gusto, per i clienti e i controlli', u:B+'greed-brain/libro.html', r:['admin','staff'], post:['banco','laboratorio'] },
   { g:'Banco', id:'etichette', e:'🏷️', n:'Etichette banco', d:'Cartellini dei gusti con allergeni, pronti da stampare', u:B+'admin-gusti/etichette.html', r:['admin','staff'], post:['banco'] },
   { g:'Laboratorio', id:'lab-pc', e:'👨‍🍳', n:'Produzione', d:'Il gestionale del laboratorio: ricette, pesate, lotti', u:'http://localhost:8787/gelateria_v3.html', r:['admin','staff'], post:['laboratorio'], pc:'laboratorio', avvio:'Avvia laboratorio', proto:'laboratorio' },
   { g:'Laboratorio', id:'bil-lab', e:'⚗️', n:'Bilanciatore', d:'Modifica le ricette (entra con l\'account di Dario)', u:B+'greed-brain/laboratorio/bilanciatore.html', r:['admin','staff'], post:['laboratorio'] },
@@ -92,6 +93,7 @@ const PROGRAMMI = [
   { g:'HACCP', id:'temperature', e:'🌡️', n:'Registro temperature', d:'Storico mensile e importazione da X-Sense', u:B+'greed-brain/temperature.html', r:['admin','staff'], post:['banco','laboratorio'] },
   { g:'HACCP', id:'pulizie', e:'🧽', n:'Pulizie', d:'Piano di pulizia e sanificazione da spuntare', u:B+'greed-brain/greed_pulizie_haccp.html', r:['admin','staff'], post:['banco','laboratorio'] },
   { g:'HACCP', id:'fornitori', e:'🏭', n:'Fornitori e schede tecniche', d:'Schede tecniche, richieste ai fornitori, scadenze dei lotti', u:B+'greed-brain/fornitori.html', r:['admin','staff'], post:['laboratorio'] },
+  { g:'HACCP', id:'schede', e:'📋', n:'Schede prodotto', d:'Schede HACCP di ogni ricetta, ingredienti composti, parametri di processo', u:B+'greed-brain/libro.html#schede', r:['admin'] },
   { g:'HACCP', id:'nc', e:'⚠️', n:'Non conformità', d:'Segnalazioni e azioni correttive', u:B+'greed-brain/greed_nonconformita.html', r:['admin','staff'], post:['banco','laboratorio'] },
   { g:'Ricette e costi', id:'bil-pc', e:'⚗️', n:'Bilanciatore', d:'Ricette, Flavor Lab e Linea Mente', u:'http://localhost:3001/gelato_bilanciatore_integrated', r:['admin'], pc:'ufficio', avvio:'Avvia bilanciatore', proto:'bilanciatore' },
   { g:'Ricette e costi', id:'pro', e:'📈', n:'GelateriaPro', d:'Incassi, confronto anni, costi e margini dei gusti', u:'http://localhost:3001/gelateria_pro', r:['admin'], pc:'ufficio', avvio:'Avvia gelateria', proto:'gelateria' },
