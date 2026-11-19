@@ -192,7 +192,7 @@ function prodotto(r) {
   const man = String(r.allergeni || '').toLowerCase();
   Object.entries(MAN_ALG).forEach(([k, v]) => { if (man.includes(k)) set.add(v); });
   const allergeni = [...set].sort((a, b) => ORDINE_ALG.indexOf(a) - ORDINE_ALG.indexOf(b));
-  const tracce = [...new Set(parti.flatMap(p => p.tracce).join(', ').split(/,\s*(?![^()]*\))/).map(s => s.trim()).filter(Boolean))];
+  const tracce = [...new Set(parti.flatMap(p => p.tracce).join(', ').split(/,\s*(?![^()]*\))/).map(s => s.replace(/^(pu[oò]'? contenere )?(tracce di|tracce:?)\s*/i, '').trim()).filter(Boolean))];
   const vegano = testo && !ANIMALE.test(testo) && !allergeni.some(a => ['LATTE', 'UOVA', 'PESCE', 'CROSTACEI', 'MOLLUSCHI'].includes(a));
   const tipo = r.tipo === 'semifreddo' ? 'semifreddo' : r.tipo === 'torta' ? 'torta' : vegano ? 'vegano' : 'gelato';
   const tot = ing.reduce((t, i) => t + (+i.d || 0), 0);
