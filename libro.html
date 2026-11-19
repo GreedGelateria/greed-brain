@@ -218,6 +218,11 @@ function avvisi(P) {
   return a.length ? `<div class="avviso noprint">⚠️ ${a.join('<br>')}</div>` : '';
 }
 function render() {
+  const att = document.activeElement, idAtt = att && att.id, car = att && 'selectionStart' in att ? [att.selectionStart, att.selectionEnd] : null;
+  _render();
+  if (idAtt) { const n = document.getElementById(idAtt); if (n && n !== document.activeElement) { n.focus(); try { if (car) n.setSelectionRange(car[0], car[1]); } catch (e) {} } }
+}
+function _render() {
   tabs();
   const P = prodotti();
   document.getElementById('avvisi').innerHTML = avvisi(P);
@@ -296,27 +301,50 @@ function ingredientiTutti() {
   return Object.values(per).sort((a, b) => a.localeCompare(b, 'it'));
 }
 let FILTRO_ING = 'dafare';
+// Bozze: quello che scrivi resta anche se la pagina si ridisegna o la chiudi, finché non lo salvi
+let BOZZE = {}; try { BOZZE = JSON.parse(localStorage.getItem('libro_bozze_ing') || '{}'); } catch (e) {}
+const salvaBozze = () => { try { localStorage.setItem('libro_bozze_ing', JSON.stringify(BOZZE)); } catch (e) {} const b = document.getElementById('salvaTutti'); if (b) { const n = Object.keys(BOZZE).length; b.textContent = `💾 Salva tutto (${n})`; b.disabled = !n; } };
+function bozza(nEnc) {
+  const n = decodeURIComponent(nEnc), id = slug(n), v = x => (document.getElementById(x + id) || {}).value || '';
+  BOZZE[id] = { nome: n, t: v('t-'), c: v('c-'), tr: v('tr-'), f: v('f-') }; salvaBozze();
+}
 function vistaIngredienti() {
   const tutti = ingredientiTutti(), uso = n => RIC.filter(r => !eBase(r) && (r.ingredienti || []).some(i => norm(i.nome) === norm(n))).length;
-  const lista = tutti.filter(n => { const s = infoIngrediente(n).stato; return FILTRO_ING === 'tutti' || (FILTRO_ING === 'dafare' ? (s === 'manca' || s === 'precompilato') : s === 'ok' || s === 'semplice'); });
+  const lista = tutti.filter(n => { const s = infoIngrediente(n).stato; return FILTRO_ING === 'tutti' || BOZZE[slug(n)] || (FILTRO_ING === 'dafare' ? (s === 'manca' || s === 'precompilato') : s === 'ok' || s === 'semplice'); });
   const lab = { manca: '<span class="chip ko">da completare</span>', precompilato: '<span class="chip warn">precompilato: conferma</span>', ok: '<span class="chip ok">completo</span>', semplice: '<span class="chip ok">semplice</span>' };
   return `<div class="barra"><select onchange="FILTRO_ING=this.value;render()" style="width:auto">
       <option value="dafare" ${FILTRO_ING === 'dafare' ? 'selected' : ''}>Da completare o confermare</option><option value="fatti" ${FILTRO_ING === 'fatti' ? 'selected' : ''}>Già a posto</option><option value="tutti" ${FILTRO_ING === 'tutti' ? 'selected' : ''}>Tutti (${tutti.length})</option></select>
-    <span class="muted">Scrivi i componenti come sulla scheda tecnica del fornitore, in ordine di peso. Se è un ingrediente semplice (es. latte, zucchero) scegli "Semplice".</span></div>
-    <div class="box">${lista.map(n => { const i = infoIngrediente(n), id = slug(n), al = ALLERGENI_REGOLE.filter(a => a.re.test(n + ' ' + i.componenti)).map(a => a.k.toLowerCase());
+    <button class="b" id="salvaTutti" onclick="salvaTutti()" ${Object.keys(BOZZE).length ? '' : 'disabled'}>💾 Salva tutto (${Object.keys(BOZZE).length})</button>
+    <span class="muted">Scrivi i componenti come sulla scheda tecnica del fornitore, in ordine di peso. Se è un ingrediente semplice (es. latte, zucchero) scegli "Semplice". Quello che scrivi resta salvato come bozza finché non premi Salva.</span></div>
+    <div class="box">${lista.map(n => { const i0 = infoIngrediente(n), id = slug(n), bz = BOZZE[id], ne = encodeURIComponent(n).replace(/'/g, '%27');
+      const i = bz ? { ...i0, tipo: bz.t === 's' ? 'semplice' : 'composto', componenti: bz.c, tracce: bz.tr, fonte: bz.f } : i0, al = ALLERGENI_REGOLE.filter(a => a.re.test(n + ' ' + i.componenti)).map(a => a.k.toLowerCase());
       return `<div class="ingr"><div><b>${esc(bello(n))}</b><br>${lab[i.stato]} <span class="muted">${uso(n)} ricett${uso(n) === 1 ? 'a' : 'e'}</span>${al.length ? `<br><span class="muted">allergeni: <b style="color:#7a2214">${al.join(', ')}</b></span>` : ''}</div>
-        <div><select id="t-${id}" style="margin-bottom:5px" onchange="document.getElementById('c-${id}').disabled=this.value==='s'"><option value="c" ${i.tipo !== 'semplice' ? 'selected' : ''}>Composto</option><option value="s" ${i.tipo === 'semplice' ? 'selected' : ''}>Semplice</option></select>
-          <textarea id="c-${id}" placeholder="es. pasta di cacao, zucchero, burro di cacao, emulsionante: lecitina di soia" ${i.tipo === 'semplice' ? 'disabled' : ''}>${esc(i.componenti)}</textarea></div>
-        <div><input id="tr-${id}" placeholder="Può contenere tracce di…" value="${esc(i.tracce)}"><input id="f-${id}" style="margin-top:5px" placeholder="Fonte (es. scheda tecnica, data)" value="${esc(i.fonte)}"></div>
-        <div><button class="b" onclick="salvaIng('${encodeURIComponent(n)}')">Salva</button></div></div>`; }).join('') || '<p class="muted">Niente da completare.</p>'}</div>`;
+        <div><select id="t-${id}" style="margin-bottom:5px" onchange="document.getElementById('c-${id}').disabled=this.value==='s';bozza('${ne}')"><option value="c" ${i.tipo !== 'semplice' ? 'selected' : ''}>Composto</option><option value="s" ${i.tipo === 'semplice' ? 'selected' : ''}>Semplice</option></select>
+          <textarea id="c-${id}" oninput="bozza('${ne}')" placeholder="es. pasta di cacao, zucchero, burro di cacao, emulsionante: lecitina di soia" ${i.tipo === 'semplice' ? 'disabled' : ''}>${esc(i.componenti)}</textarea></div>
+        <div><input id="tr-${id}" oninput="bozza('${ne}')" placeholder="Può contenere tracce di…" value="${esc(i.tracce)}"><input id="f-${id}" oninput="bozza('${ne}')" style="margin-top:5px" placeholder="Fonte (es. scheda tecnica, data)" value="${esc(i.fonte)}"></div>
+        <div><button class="b" onclick="salvaIng('${ne}')">Salva</button>${bz ? '<div class="muted" style="font-size:11px;margin-top:4px;color:#a06a00">✏️ bozza non salvata</div>' : ''}</div></div>`; }).join('') || '<p class="muted">Niente da completare.</p>'}</div>`;
+}
+function datiIng(n) {
+  const id = slug(n), bz = BOZZE[id], el = x => document.getElementById(x + id);
+  const t = el('t-') ? el('t-').value : bz && bz.t, c = el('c-') ? el('c-').value : bz && bz.c, tr = el('tr-') ? el('tr-').value : bz && bz.tr, f = el('f-') ? el('f-').value : bz && bz.f;
+  const semplice = t === 's';
+  return { nome: n, semplice, componenti: semplice ? '' : String(c || '').trim(), tracce: String(tr || '').trim(), fonte: String(f || '').trim(), _ts: Date.now() };
 }
 async function salvaIng(nEnc) {
-  const n = decodeURIComponent(nEnc), id = slug(n);
-  const semplice = document.getElementById('t-' + id).value === 's';
-  const d = { nome: n, semplice, componenti: semplice ? '' : document.getElementById('c-' + id).value.trim(), tracce: document.getElementById('tr-' + id).value.trim(), fonte: document.getElementById('f-' + id).value.trim(), _ts: Date.now() };
-  if (!semplice && !d.componenti) { alert('Scrivi i componenti, oppure scegli "Semplice".'); return; }
-  COMP[id] = d; render();
-  try { await db.collection('ingredienti_composti').doc(id).set(d); } catch (e) { alert('Non salvato: ' + e.message); }
+  const n = decodeURIComponent(nEnc), id = slug(n), d = datiIng(n);
+  if (!d.semplice && !d.componenti) { alert('Scrivi i componenti, oppure scegli "Semplice".'); return; }
+  try { await db.collection('ingredienti_composti').doc(id).set(d); COMP[id] = d; delete BOZZE[id]; salvaBozze(); render(); }
+  catch (e) { alert('Non salvato: ' + e.message + '\nQuello che hai scritto resta qui come bozza.'); }
+}
+async function salvaTutti() {
+  const ids = Object.keys(BOZZE); let ok = 0; const vuoti = [], errori = [];
+  for (const id of ids) {
+    const d = datiIng(BOZZE[id].nome);
+    if (!d.semplice && !d.componenti) { vuoti.push(bello(d.nome)); continue; }
+    try { await db.collection('ingredienti_composti').doc(id).set(d); COMP[id] = d; delete BOZZE[id]; ok++; } catch (e) { errori.push(bello(d.nome) + ': ' + e.message); }
+  }
+  salvaBozze(); render();
+  alert(`Salvati ${ok} ingredienti.` + (vuoti.length ? `\nNon salvati perché senza componenti (scrivili o scegli "Semplice"): ${vuoti.join(', ')}` : '') + (errori.length ? `\nErrori: ${errori.join('; ')}` : ''));
 }
 function vistaParametri() {
   const p = par(), f = (id, lab, v, area) => `<div><label for="${id}">${lab}</label>${area ? `<textarea id="${id}" rows="${area}">${esc(v)}</textarea>` : `<input id="${id}" value="${esc(v)}">`}</div>`;
