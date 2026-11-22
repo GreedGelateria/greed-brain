@@ -30,6 +30,17 @@
       if (!u) return Promise.resolve(false);
       return impronta(pin).then(function (h) { var ok = h === u.h; if (ok) self.ricorda(nome); return ok; });
     },
+    // Tastiera del PC: i numeri (anche il tastierino numerico) e il tasto ⌫ funzionano come i pulsanti,
+    // solo mentre la schermata del PIN è visibile.
+    tastiera: function (idSchermata, cifra, cancella) {
+      document.addEventListener('keydown', function (e) {
+        var el = document.getElementById(idSchermata);
+        if (!el || getComputedStyle(el).display === 'none') return;
+        if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+        if (/^[0-9]$/.test(e.key)) { e.preventDefault(); cifra(e.key); }
+        else if (e.key === 'Backspace') { e.preventDefault(); cancella(); }
+      });
+    },
     // PIN senza scegliere il nome: restituisce DARIO, STAFF oppure null
     prova: function (pin) {
       var self = this;

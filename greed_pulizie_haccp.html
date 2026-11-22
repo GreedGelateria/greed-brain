@@ -420,6 +420,7 @@ window.pinDel = function() {
   currentPin = currentPin.slice(0, -1);
   renderPinDots();
 };
+GreedPin.tastiera('login-screen', window.pinPress, window.pinDel);
 
 async function checkPin() {
   if (!(await GreedPin.verifica(currentUser, currentPin))) {

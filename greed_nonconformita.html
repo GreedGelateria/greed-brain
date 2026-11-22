@@ -316,6 +316,7 @@ window.pinPress = d => {
   if (currentPin.length === pinLen()) checkPin();
 };
 window.pinDel = () => { currentPin = currentPin.slice(0,-1); renderDots(); };
+GreedPin.tastiera('login-screen', window.pinPress, window.pinDel);
 
 async function checkPin() {
   if (!(await GreedPin.verifica(currentUser, currentPin))) {

@@ -131,7 +131,7 @@ input.data-sospetta { border-color: #e05040 !important; background: rgba(224,80,
 <!-- PIN -->
 <div id="pin-screen">
   <div class="pin-logo">GREED</div>
-  <div class="pin-sub">Carico DDT — Accesso riservato</div>
+  <div class="pin-sub">Carico DDT — PIN di Dario o dello staff</div>
   <div class="pin-dots" id="pin-dots"></div>
   <div class="pin-grid">
     <button class="pin-btn" onclick="pp('1')">1</button>
@@ -323,6 +323,7 @@ window.pp = d => {
   }
 };
 window.pd = () => { entered = entered.slice(0,-1); renderDots(); };
+GreedPin.tastiera('pin-screen', window.pp, window.pd);
 
 // ── RIGHE ────────────────────────────────────────────────
 window._righe = [];
