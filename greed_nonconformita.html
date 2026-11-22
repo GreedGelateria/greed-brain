@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<script src="pin.js"></script>
+<script src="pin.js?v=3"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GREED — Non Conformità</title>
@@ -272,7 +272,7 @@ select option { background: var(--dark); }
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import { richiediAccesso } from './accesso.js';
+import { richiediAccesso } from './accesso.js?v=3';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, setDoc, updateDoc, getDocs, collection, orderBy, query }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';

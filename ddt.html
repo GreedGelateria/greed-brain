@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<script src="pin.js"></script>
+<script src="pin.js?v=3"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
@@ -209,7 +209,7 @@ input.data-sospetta { border-color: #e05040 !important; background: rgba(224,80,
 </div>
 
 <script type="module">
-import { richiediAccesso } from './accesso.js';
+import { richiediAccesso } from './accesso.js?v=3';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, increment }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
