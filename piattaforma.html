@@ -59,7 +59,8 @@ h2{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:28px;color:v
 @media(max-width:600px){#ai{right:0;bottom:0;width:100vw;max-width:100vw;height:100%;border-radius:0}#ai-btn{bottom:14px;right:14px}}
 </style></head><body>
 <div id="login"><div class="m">GREED</div><div style="letter-spacing:.2em;font-size:13px;margin-top:6px">PIATTAFORMA · GELATO NATURALE</div>
-  <button onclick="accedi()">Accedi con Google</button><div id="loginErr" style="margin-top:14px;font-size:13px;color:#f3b0a0"></div></div>
+  <div id="loginAtt" style="margin-top:28px;font-size:13px;opacity:.7">Controllo accesso…</div>
+  <button id="loginBtn" onclick="accedi()" style="display:none">Accedi con Google</button><div id="loginErr" style="margin-top:14px;font-size:13px;color:#f3b0a0"></div></div>
 <nav id="menu"><div class="marchio">GREED<small>PIATTAFORMA</small></div><div id="voci"></div>
   <div id="utente"><span id="chi"></span><button onclick="esci()">Esci</button></div></nav>
 <div id="area">
@@ -240,11 +241,14 @@ function entra(email) {
 function avvia() {
   firebase.initializeApp({ apiKey:"AIzaSyBwAZb_A3IjPv7iL0cLhVnWO-Cuw_DD5g4", authDomain:"club-greed.firebaseapp.com", projectId:"club-greed", appId:"1:704669833762:web:917f4c7b104bc8ad39087b" }, 'piattaforma');
   const auth = firebase.app('piattaforma').auth();
-  auth.onAuthStateChanged(u => {
+  // Sicurezza: l'accesso Google vale solo finché la piattaforma resta aperta. Chiusa la scheda o l'app,
+  // alla riapertura bisogna scegliere di nuovo l'account GREED.
+  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(() => {}).then(() => auth.onAuthStateChanged(u => {
     if (u && EMAIL[u.email]) { entra(u.email); return; }
     if (u) { document.getElementById('loginErr').textContent = 'Account ' + u.email + ' non autorizzato.'; auth.signOut(); }
     document.getElementById('login').style.display = 'flex';
-  });
+    document.getElementById('loginAtt').style.display = 'none'; document.getElementById('loginBtn').style.display = 'inline-block';
+  }));
   window.accedi = () => { const p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); auth.signInWithPopup(p).catch(e => { document.getElementById('loginErr').textContent = e.code === 'auth/popup-closed-by-user' ? '' : e.message; }); };
   window.esci = () => auth.signOut().then(() => location.reload());
 }
