@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+<script src="pin.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GREED — Pulizie & Sanificazione</title>
@@ -295,9 +296,7 @@ const FB_CONFIG = {
 };
 
 // ── OPERATORI con PIN ────────────────────────────────────
-const OPERATORI = [
-  { nome: "DARIO", pin: "1234", admin: true },
-];
+const OPERATORI = GreedPin.utenti.map(nome => ({ nome }));   // PIN unico: pin.js
 
 // ── CHECKLIST ZONE ───────────────────────────────────────
 const ZONE = [
@@ -378,6 +377,7 @@ const todayStr = today.toISOString().split('T')[0];
   await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
   renderUserChips();
   renderPinDots();
+  if (GreedPin.sessione()) { currentUser = GreedPin.sessione(); doLogin(); }
 })();
 
 // ── LOGIN ─────────────────────────────────────────────────
@@ -399,7 +399,7 @@ window.selectUser = function(nome) {
 
 function renderPinDots() {
   const el = document.getElementById('pin-display');
-  el.innerHTML = Array(4).fill(0).map((_, i) =>
+  el.innerHTML = Array(GreedPin.lunghezza(currentUser)).fill(0).map((_, i) =>
     `<div class="pin-dot ${i < currentPin.length ? 'filled' : ''}"></div>`
   ).join('');
 }
@@ -409,10 +409,11 @@ window.pinPress = function(d) {
     document.getElementById('pin-error').textContent = 'Seleziona il tuo nome prima';
     return;
   }
-  if (currentPin.length >= 4) return;
+  const L = GreedPin.lunghezza(currentUser);
+  if (currentPin.length >= L) return;
   currentPin += d;
   renderPinDots();
-  if (currentPin.length === 4) checkPin();
+  if (currentPin.length === L) checkPin();
 };
 
 window.pinDel = function() {
@@ -420,9 +421,8 @@ window.pinDel = function() {
   renderPinDots();
 };
 
-function checkPin() {
-  const op = OPERATORI.find(o => o.nome === currentUser);
-  if (!op || op.pin !== currentPin) {
+async function checkPin() {
+  if (!(await GreedPin.verifica(currentUser, currentPin))) {
     document.getElementById('pin-error').textContent = 'PIN non corretto';
     setTimeout(() => { currentPin = ""; renderPinDots(); }, 700);
     return;
@@ -450,6 +450,7 @@ async function doLogin() {
 }
 
 window.logout = function() {
+  GreedPin.esci();
   currentUser = null; currentPin = "";
   checklistData = {}; firmaData = null;
   document.getElementById('app').style.display = 'none';

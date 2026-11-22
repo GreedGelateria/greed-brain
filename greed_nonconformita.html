@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+<script src="pin.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GREED — Non Conformità</title>
@@ -281,13 +282,10 @@ const app = initializeApp(FB, 'nonconformita');
 const db  = getFirestore(app);
 await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
 
-const OPERATORI = [
-  { nome: 'DARIO', pin: '112233' },
-  { nome: 'STAFF', pin: '1234' },
-];
+const OPERATORI = GreedPin.utenti.map(nome => ({ nome }));   // PIN unico: pin.js
 
 let currentUser = null, currentPin = '', tipoSel = null, sevSel = null;
-const pinLen = () => (OPERATORI.find(o => o.nome === currentUser)?.pin.length) || 4;
+const pinLen = () => GreedPin.lunghezza(currentUser);
 
 // ── LOGIN ─────────────────────────────────────────────────
 const chips = document.getElementById('user-chips');
@@ -319,25 +317,30 @@ window.pinPress = d => {
 };
 window.pinDel = () => { currentPin = currentPin.slice(0,-1); renderDots(); };
 
-function checkPin() {
-  const op = OPERATORI.find(o => o.nome === currentUser);
-  if (!op || op.pin !== currentPin) {
+async function checkPin() {
+  if (!(await GreedPin.verifica(currentUser, currentPin))) {
     document.getElementById('pin-error').textContent = 'PIN non corretto';
     setTimeout(() => { currentPin = ''; renderDots(); }, 700);
     return;
   }
+  entra();
+}
+function entra() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('operator-badge').textContent = '👤 ' + currentUser;
 }
 
 window.logout = () => {
+  GreedPin.esci();
   currentUser = null; currentPin = ''; tipoSel = null; sevSel = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.querySelectorAll('.user-chip').forEach(c => c.classList.remove('active'));
   renderDots();
 };
+
+if (GreedPin.sessione()) { currentUser = GreedPin.sessione(); entra(); }
 
 // ── TABS ──────────────────────────────────────────────────
 window.setTab = t => {

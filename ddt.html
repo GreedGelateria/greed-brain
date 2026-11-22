@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+<script src="pin.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
@@ -288,35 +289,37 @@ const app = initializeApp(FB, 'ddt-loader');
 const db  = getFirestore(app);
 await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
 
-// ── PIN ──────────────────────────────────────────────────
-const PIN = '0044';
+// ── PIN unico (Dario o Staff): una volta al giorno vale per tutte le pagine ──
 let entered = '';
 
 function renderDots() {
+  const n = entered.length > 4 ? 6 : 4;
   document.getElementById('pin-dots').innerHTML =
-    Array(4).fill(0).map((_,i) =>
+    Array(n).fill(0).map((_,i) =>
       `<div class="pin-dot ${i < entered.length ? 'filled' : ''}"></div>`
     ).join('');
 }
 renderDots();
 
-if(sessionStorage.getItem('greed_ddt_auth') === 'ok') {
+if(window.GreedPin && GreedPin.sessione()) {
   document.getElementById('pin-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
 }
 
 window.pp = d => {
-  if(entered.length >= 4) return;
+  if(entered.length >= 6) return;
   entered += d; renderDots();
-  if(entered.length === 4) {
-    if(entered === PIN) {
-      sessionStorage.setItem('greed_ddt_auth','ok');
-      document.getElementById('pin-screen').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
-    } else {
-      document.getElementById('pin-err').textContent = 'PIN non corretto';
-      setTimeout(() => { entered = ''; renderDots(); document.getElementById('pin-err').textContent = ''; }, 700);
-    }
+  if(entered.length === 4 || entered.length === 6) {
+    const tentativo = entered;
+    GreedPin.prova(tentativo).then(chi => {
+      if(chi) {
+        document.getElementById('pin-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+      } else if(tentativo.length === 6) {
+        document.getElementById('pin-err').textContent = 'PIN non corretto';
+        setTimeout(() => { entered = ''; renderDots(); document.getElementById('pin-err').textContent = ''; }, 700);
+      }
+    });
   }
 };
 window.pd = () => { entered = entered.slice(0,-1); renderDots(); };
