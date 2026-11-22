@@ -378,6 +378,7 @@ const todayStr = today.toISOString().split('T')[0];
   renderUserChips();
   renderPinDots();
   if (GreedPin.sessione()) { currentUser = GreedPin.sessione(); doLogin(); }
+  else if (GreedPin.atteso()) selectUser(GreedPin.atteso());
 })();
 
 // ── LOGIN ─────────────────────────────────────────────────

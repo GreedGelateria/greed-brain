@@ -291,9 +291,10 @@ await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
 
 // ── PIN unico (Dario o Staff): una volta al giorno vale per tutte le pagine ──
 let entered = '';
+const A = GreedPin.atteso(), L = A ? GreedPin.lunghezza(A) : 0; // account Dario → 6 cifre, staff → 4
 
 function renderDots() {
-  const n = entered.length > 4 ? 6 : 4;
+  const n = L || (entered.length > 4 ? 6 : 4);
   document.getElementById('pin-dots').innerHTML =
     Array(n).fill(0).map((_,i) =>
       `<div class="pin-dot ${i < entered.length ? 'filled' : ''}"></div>`
@@ -307,15 +308,15 @@ if(window.GreedPin && GreedPin.sessione()) {
 }
 
 window.pp = d => {
-  if(entered.length >= 6) return;
+  if(entered.length >= (L || 6)) return;
   entered += d; renderDots();
-  if(entered.length === 4 || entered.length === 6) {
+  if(L ? entered.length === L : (entered.length === 4 || entered.length === 6)) {
     const tentativo = entered;
     GreedPin.prova(tentativo).then(chi => {
       if(chi) {
         document.getElementById('pin-screen').style.display = 'none';
         document.getElementById('app').style.display = 'block';
-      } else if(tentativo.length === 6) {
+      } else if(tentativo.length === (L || 6)) {
         document.getElementById('pin-err').textContent = 'PIN non corretto';
         setTimeout(() => { entered = ''; renderDots(); document.getElementById('pin-err').textContent = ''; }, 700);
       }

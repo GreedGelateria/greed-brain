@@ -342,6 +342,7 @@ window.logout = () => {
 };
 
 if (GreedPin.sessione()) { currentUser = GreedPin.sessione(); entra(); }
+else if (GreedPin.atteso()) selUser(GreedPin.atteso());
 
 // ── TABS ──────────────────────────────────────────────────
 window.setTab = t => {

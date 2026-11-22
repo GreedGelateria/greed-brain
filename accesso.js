@@ -31,6 +31,7 @@ export function richiediAccesso(app) {
       if (u && EMAIL_GREED.includes(u.email)) {
         if (gate) gate.style.display = 'none';
         window.GREED_ACCOUNT = u.email;
+        try { sessionStorage.setItem('greed_account', u.email); } catch (e) {}
         ok(u);
       } else {
         if (u) { signOut(auth); mostra('Account ' + u.email + ' non autorizzato.'); }

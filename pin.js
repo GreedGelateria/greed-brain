@@ -30,6 +30,12 @@
       if (!u) return Promise.resolve(false);
       return impronta(pin).then(function (h) { var ok = h === u.h; if (ok) self.ricorda(nome); return ok; });
     },
+    // Chi deve mettere il PIN, in base all'account Google con cui si è entrati (DARIO, STAFF o null)
+    ricordaAccount: function (email) { try { sessionStorage.setItem('greed_account', email || ''); } catch (e) {} },
+    atteso: function () {
+      var e = ''; try { e = sessionStorage.getItem('greed_account') || ''; } catch (x) {}
+      return e === 'gelateriagreed@gmail.com' ? 'DARIO' : e === 'team.greedfrascati@gmail.com' ? 'STAFF' : null;
+    },
     // Tastiera del PC: i numeri (anche il tastierino numerico) e il tasto ⌫ funzionano come i pulsanti,
     // solo mentre la schermata del PIN è visibile.
     tastiera: function (idSchermata, cifra, cancella) {

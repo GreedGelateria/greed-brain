@@ -226,7 +226,7 @@ async function aiInvia(testo) {
   AI_OCCUPATO = false; aiDisegna();
 }
 function entra(email) {
-  if (email) RUOLO = EMAIL[email];
+  if (email) { RUOLO = EMAIL[email]; try { sessionStorage.setItem('greed_account', email); } catch (e) {} }
   document.getElementById('login').style.display = 'none';
   document.getElementById('ai-btn').style.display = RUOLO === 'admin' ? 'block' : 'none';
   document.getElementById('ai-voce').textContent = AI_PARLA ? '🔊' : '🔇';
@@ -250,7 +250,7 @@ function avvia() {
     document.getElementById('loginAtt').style.display = 'none'; document.getElementById('loginBtn').style.display = 'inline-block';
   }));
   window.accedi = () => { const p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); auth.signInWithPopup(p).catch(e => { document.getElementById('loginErr').textContent = e.code === 'auth/popup-closed-by-user' ? '' : e.message; }); };
-  window.esci = () => auth.signOut().then(() => location.reload());
+  window.esci = () => { try { sessionStorage.removeItem('greed_account'); } catch (e) {} auth.signOut().then(() => location.reload()); };
 }
 if (!window.__PROVA) avvia();
 </script></body></html>
