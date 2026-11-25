@@ -266,11 +266,12 @@ body {
 
 <!-- NOMI DEL TEAM: li cambia solo Dario -->
 <div id="team-modal"><div class="box">
-  <h3>Nomi del team</h3>
-  <p>Chi fa le pulizie sceglie il suo nome e mette il PIN dello staff. Lascia vuoto per usare «TEAM 1», «TEAM 2», «TEAM 3».</p>
-  <label>Team 1</label><input id="tn1" maxlength="20" placeholder="TEAM 1">
-  <label>Team 2</label><input id="tn2" maxlength="20" placeholder="TEAM 2">
-  <label>Team 3</label><input id="tn3" maxlength="20" placeholder="TEAM 3">
+  <h3>Nomi e PIN del team</h3>
+  <p>Ognuno entra col suo nome e il <b>suo PIN</b> di 4 cifre: le pulizie e la firma restano a suo nome. Il PIN lo scrivi solo quando lo vuoi impostare o cambiare: lasciato vuoto resta quello di prima.</p>
+  <label>Team 1 — nome e PIN <span id="tp1s"></span></label><input id="tn1" maxlength="20" placeholder="TEAM 1"><input id="tp1" class="tp" type="password" inputmode="numeric" maxlength="4" placeholder="Nuovo PIN (4 cifre)" style="margin-top:6px">
+  <label>Team 2 — nome e PIN <span id="tp2s"></span></label><input id="tn2" maxlength="20" placeholder="TEAM 2"><input id="tp2" class="tp" type="password" inputmode="numeric" maxlength="4" placeholder="Nuovo PIN (4 cifre)" style="margin-top:6px">
+  <label>Team 3 — nome e PIN <span id="tp3s"></span></label><input id="tn3" maxlength="20" placeholder="TEAM 3"><input id="tp3" class="tp" type="password" inputmode="numeric" maxlength="4" placeholder="Nuovo PIN (4 cifre)" style="margin-top:6px">
+  <div id="team-err" style="color:var(--red);font-size:13px;margin-top:10px;min-height:16px"></div>
   <div class="azioni"><button onclick="chiudiNomiTeam()">Annulla</button><button class="ok" onclick="salvaNomiTeam()">Salva</button></div>
 </div></div>
 
@@ -283,7 +284,7 @@ body {
     </div>
     <div class="header-right">
       <div class="operator-badge" id="operator-badge"></div>
-      <button class="btn-team" id="btn-team" onclick="apriNomiTeam()" style="display:none">✏️ Nomi team</button>
+      <button class="btn-team" id="btn-team" onclick="apriNomiTeam()" style="display:none">✏️ Nomi e PIN team</button>
       <button class="btn-logout" onclick="logout()">Esci</button>
     </div>
   </div>
@@ -322,15 +323,23 @@ const FB_CONFIG = {
 // DARIO entra col suo PIN; TEAM 1, 2, 3 entrano col PIN dello staff (pin.js).
 // I nomi del team li sceglie Dario (✏️ Nomi team) e restano in config/team_pulizie.
 let NOMI_TEAM = ['', '', ''];
+let PIN_TEAM = ['', '', ''];   // impronte SHA-256 dei PIN personali (mai il PIN in chiaro)
+function improntaTeam(pin) {
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode('greed-team|' + pin)).then(b =>
+    Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
+}
+// PIN di un membro del team: il suo personale; finché Dario non lo imposta, quello dello staff
+async function verificaTeam(i, pin) {
+  if (PIN_TEAM[i]) return (await improntaTeam(pin)) === PIN_TEAM[i];
+  return GreedPin.verifica('STAFF', pin);
+}
 const nomeTeam = i => (NOMI_TEAM[i] || '').trim().toUpperCase() || ('TEAM ' + (i + 1));
 const OPERATORI = () => [{ id: 'DARIO', nome: 'DARIO', pin: 'DARIO' }]
   .concat([0, 1, 2].map(i => ({ id: 'T' + (i + 1), nome: nomeTeam(i), pin: 'STAFF' })));
 const opDa = id => OPERATORI().find(o => o.id === id);
 const escH = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // chi fa le pulizie oggi su questo dispositivo (così non si richiede il nome ogni volta)
-const OP_KEY = 'greed_pulizie_op';
-function oggiOp() { try { const s = JSON.parse(localStorage.getItem(OP_KEY) || 'null'); return s && s.giorno === new Date().toDateString() ? s.id : null; } catch (e) { return null; } }
-function ricordaOp(id) { try { localStorage.setItem(OP_KEY, JSON.stringify({ id, giorno: new Date().toDateString() })); } catch (e) {} }
+const OP_KEY = 'greed_pulizie_op';   // (vecchio: non più usato, ognuno mette sempre il suo PIN)
 
 // ── CHECKLIST ZONE ───────────────────────────────────────
 const ZONE = [
@@ -409,38 +418,30 @@ const todayStr = today.toISOString().split('T')[0];
   const app = initializeApp(FB_CONFIG);
   db = getFirestore(app);
   await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
-  try { const t = await getDoc(doc(db, 'config', 'team_pulizie')); if (t.exists() && Array.isArray(t.data().nomi)) NOMI_TEAM = t.data().nomi.slice(0, 3); } catch (e) {}
+  try { const t = await getDoc(doc(db, 'config', 'team_pulizie')); if (t.exists()) { const d = t.data(); if (Array.isArray(d.nomi)) NOMI_TEAM = d.nomi.slice(0, 3); if (Array.isArray(d.pin)) PIN_TEAM = d.pin.slice(0, 3); } } catch (e) {}
   renderUserChips();
   renderPinDots();
   const sess = GreedPin.sessione();
   if (sess === 'DARIO') { entraCome('DARIO'); }
-  else if (sess === 'STAFF') {
-    const op = oggiOp();
-    if (op && op !== 'DARIO') entraCome(op);
-    else document.getElementById('pin-error').textContent = 'Tocca il tuo nome per entrare';
-  }
   else if (GreedPin.atteso() === 'DARIO') selectUser('DARIO');
-  else if (GreedPin.atteso() === 'STAFF') document.getElementById('pin-error').textContent = 'Scegli il tuo nome e metti il PIN';
+  else document.getElementById('pin-error').textContent = 'Scegli il tuo nome e metti il tuo PIN';
 })();
 
 function entraCome(id) {
   const o = opDa(id); if (!o) return;
-  currentOp = id; currentUser = o.nome; ricordaOp(id); doLogin();
+  currentOp = id; currentUser = o.nome; doLogin();
 }
 
 // ── LOGIN ─────────────────────────────────────────────────
 function renderUserChips() {
   const el = document.getElementById('user-chips');
-  // già entrato oggi come staff: si sceglie solo il nome del team, senza PIN
-  const lista = GreedPin.sessione() === 'STAFF' ? OPERATORI().filter(o => o.pin === 'STAFF') : OPERATORI();
-  el.innerHTML = lista.map(o =>
+  el.innerHTML = OPERATORI().map(o =>
     `<div class="user-chip" id="chip-${o.id}" onclick="selectUser('${o.id}')">${escH(o.nome)}</div>`
   ).join('');
 }
 
 window.selectUser = function(id) {
   const o = opDa(id); if (!o) return;
-  if (GreedPin.sessione() === 'STAFF' && o.pin === 'STAFF') { entraCome(id); return; }
   if (GreedPin.sessione() === 'DARIO' && id === 'DARIO') { entraCome(id); return; }
   currentOp = id; currentUser = o.nome;
   currentPin = "";
@@ -476,7 +477,9 @@ window.pinDel = function() {
 GreedPin.tastiera('login-screen', window.pinPress, window.pinDel);
 
 async function checkPin() {
-  if (!(await GreedPin.verifica(opDa(currentOp).pin, currentPin))) {
+  const ok = currentOp === 'DARIO' ? await GreedPin.verifica('DARIO', currentPin)
+    : await verificaTeam(Number(currentOp.slice(1)) - 1, currentPin);
+  if (!ok) {
     document.getElementById('pin-error').textContent = 'PIN non corretto';
     setTimeout(() => { currentPin = ""; renderPinDots(); }, 700);
     return;
@@ -725,16 +728,27 @@ function formatDate(ds) {
 // ── NOMI DEL TEAM (solo Dario) ─────────────────────────────
 window.apriNomiTeam = function() {
   if (currentOp !== 'DARIO' || GreedPin.sessione() !== 'DARIO') return;
-  [0, 1, 2].forEach(i => { document.getElementById('tn' + (i + 1)).value = NOMI_TEAM[i] || ''; });
+  [0, 1, 2].forEach(i => {
+    document.getElementById('tn' + (i + 1)).value = NOMI_TEAM[i] || '';
+    document.getElementById('tp' + (i + 1)).value = '';
+    document.getElementById('tp' + (i + 1) + 's').textContent = PIN_TEAM[i] ? '· PIN impostato ✓' : '· senza PIN personale (usa quello dello staff)';
+  });
+  document.getElementById('team-err').textContent = '';
   document.getElementById('team-modal').style.display = 'flex';
 };
 window.chiudiNomiTeam = function() { document.getElementById('team-modal').style.display = 'none'; };
 window.salvaNomiTeam = async function() {
   if (currentOp !== 'DARIO' || GreedPin.sessione() !== 'DARIO') return;
   const nomi = [0, 1, 2].map(i => document.getElementById('tn' + (i + 1)).value.trim().slice(0, 20));
+  const err = document.getElementById('team-err'); err.textContent = '';
+  const nuovi = [0, 1, 2].map(i => document.getElementById('tp' + (i + 1)).value.trim());
+  for (let i = 0; i < 3; i++) if (nuovi[i] && !/^[0-9]{4}$/.test(nuovi[i])) { err.textContent = 'Il PIN di ' + nomeTeam(i) + ' deve avere 4 cifre.'; return; }
+  const pin = PIN_TEAM.slice();
+  for (let i = 0; i < 3; i++) if (nuovi[i]) pin[i] = await improntaTeam(nuovi[i]);
+  for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) if (pin[i] && pin[i] === pin[j]) { err.textContent = 'Due persone hanno lo stesso PIN: ognuno deve avere il suo.'; return; }
   try {
-    await setDoc(doc(db, 'config', 'team_pulizie'), { nomi, aggiornato: new Date().toISOString() });
-    NOMI_TEAM = nomi; renderUserChips(); chiudiNomiTeam(); showToast('✅ Nomi del team salvati');
+    await setDoc(doc(db, 'config', 'team_pulizie'), { nomi, pin, aggiornato: new Date().toISOString() });
+    NOMI_TEAM = nomi; PIN_TEAM = pin; renderUserChips(); chiudiNomiTeam(); showToast('✅ Nomi e PIN del team salvati');
   } catch (e) { showToast('⚠️ Non salvato: ' + e.message); }
 };
 
