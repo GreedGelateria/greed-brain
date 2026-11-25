@@ -65,6 +65,18 @@ body {
 }
 .user-chip.active { background: var(--lime); color: var(--dark); border-color: var(--lime); font-weight: 700; }
 
+/* Nomi del team (li cambia solo Dario) */
+#team-modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+#team-modal .box { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 22px; width: 100%; max-width: 360px; }
+#team-modal h3 { margin: 0 0 6px; color: var(--lime); font-size: 17px; }
+#team-modal p { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+#team-modal label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+#team-modal input { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--dark); color: var(--text); font-size: 15px; }
+#team-modal .azioni { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+#team-modal button { padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-size: 14px; }
+#team-modal button.ok { background: var(--lime); color: var(--dark); border-color: var(--lime); font-weight: 700; }
+.btn-team { background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+
 /* APP */
 #app { display: none; }
 
@@ -252,6 +264,16 @@ body {
   <div class="pin-error" id="pin-error"></div>
 </div>
 
+<!-- NOMI DEL TEAM: li cambia solo Dario -->
+<div id="team-modal"><div class="box">
+  <h3>Nomi del team</h3>
+  <p>Chi fa le pulizie sceglie il suo nome e mette il PIN dello staff. Lascia vuoto per usare «TEAM 1», «TEAM 2», «TEAM 3».</p>
+  <label>Team 1</label><input id="tn1" maxlength="20" placeholder="TEAM 1">
+  <label>Team 2</label><input id="tn2" maxlength="20" placeholder="TEAM 2">
+  <label>Team 3</label><input id="tn3" maxlength="20" placeholder="TEAM 3">
+  <div class="azioni"><button onclick="chiudiNomiTeam()">Annulla</button><button class="ok" onclick="salvaNomiTeam()">Salva</button></div>
+</div></div>
+
 <!-- APP -->
 <div id="app">
   <div class="app-header">
@@ -261,6 +283,7 @@ body {
     </div>
     <div class="header-right">
       <div class="operator-badge" id="operator-badge"></div>
+      <button class="btn-team" id="btn-team" onclick="apriNomiTeam()" style="display:none">✏️ Nomi team</button>
       <button class="btn-logout" onclick="logout()">Esci</button>
     </div>
   </div>
@@ -296,7 +319,18 @@ const FB_CONFIG = {
 };
 
 // ── OPERATORI con PIN ────────────────────────────────────
-const OPERATORI = GreedPin.utenti.map(nome => ({ nome }));   // PIN unico: pin.js
+// DARIO entra col suo PIN; TEAM 1, 2, 3 entrano col PIN dello staff (pin.js).
+// I nomi del team li sceglie Dario (✏️ Nomi team) e restano in config/team_pulizie.
+let NOMI_TEAM = ['', '', ''];
+const nomeTeam = i => (NOMI_TEAM[i] || '').trim().toUpperCase() || ('TEAM ' + (i + 1));
+const OPERATORI = () => [{ id: 'DARIO', nome: 'DARIO', pin: 'DARIO' }]
+  .concat([0, 1, 2].map(i => ({ id: 'T' + (i + 1), nome: nomeTeam(i), pin: 'STAFF' })));
+const opDa = id => OPERATORI().find(o => o.id === id);
+const escH = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// chi fa le pulizie oggi su questo dispositivo (così non si richiede il nome ogni volta)
+const OP_KEY = 'greed_pulizie_op';
+function oggiOp() { try { const s = JSON.parse(localStorage.getItem(OP_KEY) || 'null'); return s && s.giorno === new Date().toDateString() ? s.id : null; } catch (e) { return null; } }
+function ricordaOp(id) { try { localStorage.setItem(OP_KEY, JSON.stringify({ id, giorno: new Date().toDateString() })); } catch (e) {} }
 
 // ── CHECKLIST ZONE ───────────────────────────────────────
 const ZONE = [
@@ -363,7 +397,7 @@ const ZONE = [
 ];
 
 // ── STATO ────────────────────────────────────────────────
-let db, currentUser = null, currentPin = "";
+let db, currentUser = null, currentPin = "", currentOp = null;
 let selectedDay = null;
 let checklistData = {}; // { "gelateria_Pavimenti": { fatto: true, ora: "09:12", op: "DARIO" } }
 let firmaData = null;
@@ -375,32 +409,50 @@ const todayStr = today.toISOString().split('T')[0];
   const app = initializeApp(FB_CONFIG);
   db = getFirestore(app);
   await richiediAccesso(app); // fase C: prima l'account GREED, poi i dati
+  try { const t = await getDoc(doc(db, 'config', 'team_pulizie')); if (t.exists() && Array.isArray(t.data().nomi)) NOMI_TEAM = t.data().nomi.slice(0, 3); } catch (e) {}
   renderUserChips();
   renderPinDots();
-  if (GreedPin.sessione()) { currentUser = GreedPin.sessione(); doLogin(); }
-  else if (GreedPin.atteso()) selectUser(GreedPin.atteso());
+  const sess = GreedPin.sessione();
+  if (sess === 'DARIO') { entraCome('DARIO'); }
+  else if (sess === 'STAFF') {
+    const op = oggiOp();
+    if (op && op !== 'DARIO') entraCome(op);
+    else document.getElementById('pin-error').textContent = 'Tocca il tuo nome per entrare';
+  }
+  else if (GreedPin.atteso() === 'DARIO') selectUser('DARIO');
+  else if (GreedPin.atteso() === 'STAFF') document.getElementById('pin-error').textContent = 'Scegli il tuo nome e metti il PIN';
 })();
+
+function entraCome(id) {
+  const o = opDa(id); if (!o) return;
+  currentOp = id; currentUser = o.nome; ricordaOp(id); doLogin();
+}
 
 // ── LOGIN ─────────────────────────────────────────────────
 function renderUserChips() {
   const el = document.getElementById('user-chips');
-  el.innerHTML = OPERATORI.map(o =>
-    `<div class="user-chip" id="chip-${o.nome}" onclick="selectUser('${o.nome}')">${o.nome}</div>`
+  // già entrato oggi come staff: si sceglie solo il nome del team, senza PIN
+  const lista = GreedPin.sessione() === 'STAFF' ? OPERATORI().filter(o => o.pin === 'STAFF') : OPERATORI();
+  el.innerHTML = lista.map(o =>
+    `<div class="user-chip" id="chip-${o.id}" onclick="selectUser('${o.id}')">${escH(o.nome)}</div>`
   ).join('');
 }
 
-window.selectUser = function(nome) {
-  currentUser = nome;
+window.selectUser = function(id) {
+  const o = opDa(id); if (!o) return;
+  if (GreedPin.sessione() === 'STAFF' && o.pin === 'STAFF') { entraCome(id); return; }
+  if (GreedPin.sessione() === 'DARIO' && id === 'DARIO') { entraCome(id); return; }
+  currentOp = id; currentUser = o.nome;
   currentPin = "";
   renderPinDots();
   document.querySelectorAll('.user-chip').forEach(c => c.classList.remove('active'));
-  document.getElementById('chip-' + nome)?.classList.add('active');
+  document.getElementById('chip-' + id)?.classList.add('active');
   document.getElementById('pin-error').textContent = '';
 };
 
 function renderPinDots() {
   const el = document.getElementById('pin-display');
-  el.innerHTML = Array(GreedPin.lunghezza(currentUser)).fill(0).map((_, i) =>
+  el.innerHTML = Array(GreedPin.lunghezza(currentOp ? opDa(currentOp).pin : null)).fill(0).map((_, i) =>
     `<div class="pin-dot ${i < currentPin.length ? 'filled' : ''}"></div>`
   ).join('');
 }
@@ -410,7 +462,7 @@ window.pinPress = function(d) {
     document.getElementById('pin-error').textContent = 'Seleziona il tuo nome prima';
     return;
   }
-  const L = GreedPin.lunghezza(currentUser);
+  const L = GreedPin.lunghezza(opDa(currentOp).pin);
   if (currentPin.length >= L) return;
   currentPin += d;
   renderPinDots();
@@ -424,19 +476,20 @@ window.pinDel = function() {
 GreedPin.tastiera('login-screen', window.pinPress, window.pinDel);
 
 async function checkPin() {
-  if (!(await GreedPin.verifica(currentUser, currentPin))) {
+  if (!(await GreedPin.verifica(opDa(currentOp).pin, currentPin))) {
     document.getElementById('pin-error').textContent = 'PIN non corretto';
     setTimeout(() => { currentPin = ""; renderPinDots(); }, 700);
     return;
   }
   document.getElementById('pin-error').textContent = '';
-  doLogin();
+  entraCome(currentOp);
 }
 
 async function doLogin() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('operator-badge').textContent = '👤 ' + currentUser;
+  document.getElementById('btn-team').style.display = currentOp === 'DARIO' ? 'inline-block' : 'none';
 
   const mesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
     'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
@@ -453,7 +506,9 @@ async function doLogin() {
 
 window.logout = function() {
   GreedPin.esci();
-  currentUser = null; currentPin = "";
+  try { localStorage.removeItem(OP_KEY); } catch (e) {}
+  currentUser = null; currentPin = ""; currentOp = null;
+  renderUserChips(); renderPinDots();
   checklistData = {}; firmaData = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
@@ -566,7 +621,7 @@ function renderChecklist() {
   }
 
   if (firmaData && !isReadonly) {
-    html += `<div class="completed-banner">✅ Giornata firmata da ${firmaData.op} alle ${firmaData.ora}</div>`;
+    html += `<div class="completed-banner">✅ Giornata firmata da ${escH(firmaData.op)} alle ${firmaData.ora}</div>`;
   }
 
   ZONE.forEach((zona, zi) => {
@@ -612,7 +667,7 @@ function renderChecklist() {
     html += `<div class="firma-section">
       <div class="firma-title">Firma responsabile</div>`;
     if (firmaData) {
-      html += `<div class="firma-done">✅ Firmato da ${firmaData.op} — ${firmaData.ora} — ${formatDate(selectedDay)}</div>`;
+      html += `<div class="firma-done">✅ Firmato da ${escH(firmaData.op)} — ${firmaData.ora} — ${formatDate(selectedDay)}</div>`;
     } else {
       const tutteOk = fatte === totale;
       html += `
@@ -622,7 +677,7 @@ function renderChecklist() {
             : `⚠️ Ancora ${totale - fatte} operazioni da completare.`}
         </div>
         <button class="btn-firma" ${!tutteOk ? 'disabled' : ''} onclick="firmaGiornata()">
-          ✍️ Firma e chiudi giornata — ${currentUser}
+          ✍️ Firma e chiudi giornata — ${escH(currentUser)}
         </button>`;
     }
     html += `</div>`;
@@ -666,6 +721,22 @@ function formatDate(ds) {
   const [y, m, d] = ds.split('-');
   return `${parseInt(d)} ${mesi[parseInt(m)-1]} ${y}`;
 }
+
+// ── NOMI DEL TEAM (solo Dario) ─────────────────────────────
+window.apriNomiTeam = function() {
+  if (currentOp !== 'DARIO' || GreedPin.sessione() !== 'DARIO') return;
+  [0, 1, 2].forEach(i => { document.getElementById('tn' + (i + 1)).value = NOMI_TEAM[i] || ''; });
+  document.getElementById('team-modal').style.display = 'flex';
+};
+window.chiudiNomiTeam = function() { document.getElementById('team-modal').style.display = 'none'; };
+window.salvaNomiTeam = async function() {
+  if (currentOp !== 'DARIO' || GreedPin.sessione() !== 'DARIO') return;
+  const nomi = [0, 1, 2].map(i => document.getElementById('tn' + (i + 1)).value.trim().slice(0, 20));
+  try {
+    await setDoc(doc(db, 'config', 'team_pulizie'), { nomi, aggiornato: new Date().toISOString() });
+    NOMI_TEAM = nomi; renderUserChips(); chiudiNomiTeam(); showToast('✅ Nomi del team salvati');
+  } catch (e) { showToast('⚠️ Non salvato: ' + e.message); }
+};
 
 function showToast(msg) {
   const t = document.getElementById('toast');
